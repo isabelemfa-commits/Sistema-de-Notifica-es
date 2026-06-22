@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Sistema de Monitoramento de Notificações de Lojas",
+  "description": "Aplicativo de gestão, controle e monitoramento de notificações e infrações de lojistas em shopping centers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
