@@ -9,8 +9,7 @@ import {
   ChevronLeft, 
   ChevronRight,
   ShieldCheck,
-  ShoppingBag,
-  Users
+  ShoppingBag
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -36,7 +35,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'stores', name: 'Gestão de Lojas', icon: Store },
     { id: 'floors', name: 'Painel por Piso', icon: Layers },
     { id: 'reports', name: 'Relatórios', icon: BarChart3 },
-    ...(isAdmin ? [{ id: 'users', name: 'Usuários', icon: Users }] : []),
     { id: 'settings', name: 'Configurações', icon: Settings }
   ];
 
@@ -119,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider mb-2 select-none">Logado como</p>
             <p className="text-xs font-semibold text-slate-100 truncate">{userEmail || 'Visitante'}</p>
             <p className="text-[10px] text-[#00C4A7] uppercase font-bold mt-1 tracking-wider">
-              {isAdmin ? 'Administradora Geral' : 'Gestor de Operações'}
+              {isAdmin ? 'Proprietária' : 'Gestor de Operações'}
             </p>
           </div>
         ) : (

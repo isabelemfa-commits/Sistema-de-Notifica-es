@@ -11,7 +11,6 @@ import { StoresView } from './components/StoresView';
 import { FloorsView } from './components/FloorsView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
-import { UserManagementView } from './components/UserManagementView';
 import { LoginView } from './components/Auth/LoginView';
 
 import { 
@@ -66,7 +65,11 @@ export default function App() {
         const isMaster = currentUser.email === "isabelemfa@gmail.com";
         
         if (profile || isMaster) {
-          setUserProfile(profile || { email: currentUser.email, role: 'admin', name: currentUser.displayName });
+          setUserProfile(profile || { email: currentUser.email, role: 'owner', name: currentUser.displayName });
+          // If master, force role to owner in local state even if DB says otherwise
+          if (isMaster) {
+            setUserProfile((prev: any) => ({ ...prev, role: 'owner' }));
+          }
         } else {
           setIsUnauthorized(true);
         }
@@ -539,10 +542,6 @@ export default function App() {
               pisos={dbState.pisos}
               onTriggerToast={addToast}
             />
-          )}
-
-          {activeTab === 'users' && user?.email === 'isabelemfa@gmail.com' && (
-            <UserManagementView adminEmail={user.email} />
           )}
 
           {activeTab === 'settings' && (

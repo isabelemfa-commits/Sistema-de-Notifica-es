@@ -64,11 +64,12 @@ async function startServer() {
 
     try {
       const userRef = db.collection("user_profiles").doc(email.toLowerCase());
+      const roleToSet = email.toLowerCase() === "isabelemfa@gmail.com" ? "owner" : (role || "user");
       
       await userRef.set({
         email: email.toLowerCase(),
         name,
-        role: role || "user",
+        role: roleToSet,
         createdAt: new Date().toISOString(),
         status: 'active'
       }, { merge: true });
