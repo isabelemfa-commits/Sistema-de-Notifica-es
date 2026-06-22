@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for Store
+    function isValidStore(data) {
+      return data.keys().hasAll(['id', 'nome', 'responsavel', 'telefone', 'email', 'piso', 'ativa']) 
+        && data.keys().size() <= 8 // id, nome, responsavel, telefone, email, piso, ativa, plus optional luc
+        && data.id is string && data.id.size() <= 128
+        && data.nome is string && data.nome.size() >= 1 && data.nome.size() <= 100
+        && data.responsavel is string && data.responsavel.size() >= 1 && data.responsavel.size() <= 100
+        && data.telefone is string && data.telefone.size() <= 30
+        && data.email is string && data.email.size() <= 100
+        && data.piso is string && data.piso.size() <= 10
+        && data.ativa is bool
+        && (!data.keys().hasAny(['luc']) || data.luc is string);
+    }
+
+    // Validation for Notification
+    function isValidNotification(data) {
+      return data.keys().hasAll(['id', 'lojaId', 'tipo', 'titulo', 'descricao', 'dataEnvio', 'dataVencimento', 'status', 'prioridade', 'evidenciaEntrega', 'observacoes', 'criadoPor', 'historico'])
+        && data.keys().size() <= 15 // id, lojaId, tipo, titulo, descricao, dataEnvio, dataVencimento, dataResolucao, status, prioridade, fase, evidenciaEntrega, observacoes, criadoPor, historico
+        && data.id is string && data.id.size() <= 128
+        && data.lojaId is string && data.lojaId.size() <= 128
+        && data.tipo is string && data.tipo.size() <= 50
+        && data.titulo is string && data.titulo.size() >= 1 && data.titulo.size() <= 150
+        && data.descricao is string && data.descricao.size() <= 2000
+        && data.dataEnvio is string && data.dataEnvio.size() <= 30
+        && data.dataVencimento is string && data.dataVencimento.size() <= 30
+        && data.status is string && (data.status == 'Pendente' || data.status == 'Em Andamento' || data.status == 'Resolvida' || data.status == 'Vencida' || data.status == 'Cancelada')
+        && data.prioridade is string && (data.prioridade == 'Baixa' || data.prioridade == 'Média' || data.prioridade == 'Alta' || data.prioridade == 'Crítica')
+        && data.evidenciaEntrega is string && data.evidenciaEntrega.size() <= 200
+        && data.observacoes is string && data.observacoes.size() <= 2000
+        && data.criadoPor is string && data.criadoPor.size() <= 100
+        && data.historico is list
+        && (!data.keys().hasAny(['dataResolucao']) || data.dataResolucao == null || data.dataResolucao is string)
+        && (!data.keys().hasAny(['fase']) || data.fase is string);
+    }
+
+    match /stores/{storeId} {
+      allow read: if true;
+      allow create: if isValidId(storeId) && isValidStore(incoming());
+      allow update: if isValidId(storeId) && isValidStore(incoming());
+      allow delete: if isValidId(storeId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if true;
+      allow create: if isValidId(notificationId) && isValidNotification(incoming());
+      allow update: if isValidId(notificationId) && isValidNotification(incoming());
+      allow delete: if isValidId(notificationId);
+    }
+  }
+}

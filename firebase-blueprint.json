@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Store": {
+      "title": "Store",
+      "description": "Schema representing a physical store in the shopping mall",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique store identifier" },
+        "nome": { "type": "string", "description": "Name of the store" },
+        "luc": { "type": "string", "description": "LUC number/identifier" },
+        "responsavel": { "type": "string", "description": "Name of the store manager" },
+        "telefone": { "type": "string", "description": "Contact telephone" },
+        "email": { "type": "string", "description": "Store email" },
+        "piso": { "type": "string", "description": "Floor location (L1, L2, L3, L4)" },
+        "ativa": { "type": "boolean", "description": "Whether store is currently active" }
+      },
+      "required": ["id", "nome", "responsavel", "telefone", "email", "piso", "ativa"]
+    },
+    "NotificationHistory": {
+      "title": "NotificationHistory",
+      "description": "Chronological history record of a notification status/event",
+      "type": "object",
+      "properties": {
+        "data": { "type": "string", "description": "ISO timestamp of the event" },
+        "descricao": { "type": "string", "description": "Description of the event" },
+        "autor": { "type": "string", "description": "Responsible person / system" }
+      },
+      "required": ["data", "descricao", "autor"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Schema representing a technical notification/issue issued to a store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique notification identifier" },
+        "lojaId": { "type": "string", "description": "Associated store foreign key" },
+        "tipo": { "type": "string", "description": "Type of event (Comunicado, Advertência, Exigência, Cobrança, etc.)" },
+        "titulo": { "type": "string", "description": "Title of the notification" },
+        "descricao": { "type": "string", "description": "Detailed description of the issue" },
+        "dataEnvio": { "type": "string", "description": "ISO timestamp of when notification was sent" },
+        "dataVencimento": { "type": "string", "description": "ISO timestamp for correction deadline" },
+        "dataResolucao": { "type": "string", "description": "ISO timestamp of when notification was resolved, or null" },
+        "status": { "type": "string", "enum": ["Pendente", "Em Andamento", "Resolvida", "Vencida", "Cancelada"] },
+        "prioridade": { "type": "string", "enum": ["Baixa", "Média", "Alta", "Crítica"] },
+        "fase": { "type": "string", "enum": ["1ª Notificação", "2ª Notificação", "3ª Notificação", "Geral"] },
+        "evidenciaEntrega": { "type": "string", "description": "Proof / delivery method" },
+        "observacoes": { "type": "string", "description": "Additional notes" },
+        "criadoPor": { "type": "string", "description": "Author user name" },
+        "historico": { "type": "array", "description": "Chronological notification pipeline steps" }
+      },
+      "required": ["id", "lojaId", "tipo", "titulo", "descricao", "dataEnvio", "dataVencimento", "status", "prioridade", "evidenciaEntrega", "observacoes", "criadoPor", "historico"]
+    }
+  },
+  "firestore": {
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Collection of all physical stores in the mall"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Collection of all operational notifications and requirements"
+    }
+  }
+}

@@ -19,13 +19,63 @@ import {
   Menu,
   Eye,
   AlertCircle,
-  XCircle
+  XCircle,
+  Cloud,
+  CloudOff,
+  RefreshCw
 } from 'lucide-react';
+import { 
+  fetchFullDatabaseFromFirestore, 
+  migrateLocalDataToFirestore, 
+  saveStoreToFirestore, 
+  deleteStoreFromFirestore, 
+  saveNotificationToFirestore, 
+  deleteNotificationFromFirestore 
+} from './firebase';
 
 export default function App() {
   // 1. Database State & Persistence synchronizer
   const [dbState, setDbState] = useState<DatabaseState>(() => loadDatabase());
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isCloudActive, setIsCloudActive] = useState<boolean>(false);
 
+  // Initial Sync with Firestore cloud
+  useEffect(() => {
+    async function initFirestoreSync() {
+      setIsSyncing(true);
+      try {
+        console.log("Iniciando carregamento do Firestore Cloud...");
+        const cloudData = await fetchFullDatabaseFromFirestore();
+        
+        if (cloudData.stores.length > 0) {
+          setDbState(prev => ({
+            ...prev,
+            stores: cloudData.stores,
+            notifications: cloudData.notifications
+          }));
+          setIsCloudActive(true);
+          addToast('success', 'Nuvem Firestore Ativa', `Sincronizado! Carregados ${cloudData.stores.length} lojas e ${cloudData.notifications.length} comunicados operacionais em tempo real.`);
+        } else {
+          // Cloud empty, upload local mock state structure
+          console.log("Banco na nuvem vazio, migrando banco local inicial...");
+          const localState = loadDatabase();
+          await migrateLocalDataToFirestore(localState);
+          setDbState(localState);
+          setIsCloudActive(true);
+          addToast('success', 'Migração Concluída', 'Seus dados locais foram salvos com sucesso e sincronizados na nuvem Firebase Firestore!');
+        }
+      } catch (error) {
+        console.warn("Firestore sync not available, using offline local storage.", error);
+        setIsCloudActive(false);
+        addToast('info', 'Banco de dados local', 'Executando em modo de contingência local. Suas alterações serão salvas localmente.');
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+    initFirestoreSync();
+  }, []);
+
+  // Sync to local fallback mirror
   useEffect(() => {
     saveDatabase(dbState);
   }, [dbState]);
@@ -75,6 +125,15 @@ export default function App() {
       ...prev,
       stores: [storeRecord, ...prev.stores]
     }));
+
+    if (isCloudActive) {
+      saveStoreToFirestore(storeRecord)
+        .then(() => addToast('success', 'Nuvem', `Loja "${storeRecord.nome}" criada na nuvem!`))
+        .catch(err => {
+          console.error("Erro ao salvar loja no Firestore:", err);
+          addToast('error', 'Sincronização', 'Erro ao salvar loja no Firestore.');
+        });
+    }
   };
 
   const handleUpdateStore = (updatedStore: Store) => {
@@ -82,6 +141,15 @@ export default function App() {
       ...prev,
       stores: prev.stores.map(s => s.id === updatedStore.id ? updatedStore : s)
     }));
+
+    if (isCloudActive) {
+      saveStoreToFirestore(updatedStore)
+        .then(() => addToast('success', 'Nuvem', `Loja "${updatedStore.nome}" atualizada na nuvem!`))
+        .catch(err => {
+          console.error("Erro ao atualizar loja no Firestore:", err);
+          addToast('error', 'Sincronização', 'Erro ao atualizar dados na nuvem.');
+        });
+    }
   };
 
   const handleDeleteStore = (storeId: string) => {
@@ -90,6 +158,20 @@ export default function App() {
       stores: prev.stores.filter(s => s.id !== storeId),
       notifications: prev.notifications.filter(n => n.lojaId !== storeId)
     }));
+
+    if (isCloudActive) {
+      deleteStoreFromFirestore(storeId)
+        .then(() => addToast('success', 'Nuvem', 'Loja removida da nuvem.'))
+        .catch(err => {
+          console.error("Erro ao remover loja do Firestore:", err);
+          addToast('error', 'Sincronização', 'Erro ao excluir loja na nuvem.');
+        });
+
+      // Remove dependent notifications too
+      dbState.notifications.filter(n => n.lojaId === storeId).forEach(n => {
+        deleteNotificationFromFirestore(n.id).catch(console.error);
+      });
+    }
   };
 
   const handleAddNotification = (newNotif: Omit<Notification, 'id' | 'historico'> & { historico?: NotificationHistory[] }) => {
@@ -110,6 +192,15 @@ export default function App() {
       ...prev,
       notifications: [record, ...prev.notifications]
     }));
+
+    if (isCloudActive) {
+      saveNotificationToFirestore(record)
+        .then(() => addToast('success', 'Nuvem', `Notificação enviada e salva em nuvem!`))
+        .catch(err => {
+          console.error("Erro ao salvar notificação no Firestore:", err);
+          addToast('error', 'Sincronização', 'Erro ao salvar notificação na nuvem.');
+        });
+    }
   };
 
   const handleUpdateNotification = (updatedNotif: Notification) => {
@@ -122,6 +213,15 @@ export default function App() {
     if (focusedNotification && focusedNotification.id === updatedNotif.id) {
       setFocusedNotification(updatedNotif);
     }
+
+    if (isCloudActive) {
+      saveNotificationToFirestore(updatedNotif)
+        .then(() => addToast('success', 'Nuvem', 'Mudança salva na nuvem com sucesso.'))
+        .catch(err => {
+          console.error("Erro ao atualizar notificação no Firestore:", err);
+          addToast('error', 'Sincronização', 'Erro ao sincronizar modificação de comunicado.');
+        });
+    }
   };
 
   const handleDeleteNotification = (id: string) => {
@@ -132,10 +232,29 @@ export default function App() {
     if (focusedNotification && focusedNotification.id === id) {
       setIsFocusedNotifOpen(false);
     }
+
+    if (isCloudActive) {
+      deleteNotificationFromFirestore(id)
+        .then(() => addToast('success', 'Nuvem', 'Comunicado removido da nuvem.'))
+        .catch(err => {
+          console.error("Erro ao salvar exclusão no Firestore:", err);
+          addToast('error', 'Sincronização', 'Erro ao excluir comunicado da nuvem.');
+        });
+    }
   };
 
   const handleUpdateFullDatabase = (nextState: DatabaseState) => {
     setDbState(nextState);
+
+    if (isCloudActive) {
+      addToast('info', 'Sincronizando', 'Sincronizando alterações massivas no banco de dados da nuvem...');
+      migrateLocalDataToFirestore(nextState)
+        .then(() => addToast('success', 'Nuvem', 'Banco de dados inteiro re-sincronizado na nuvem!'))
+        .catch(err => {
+          console.error("Erro na migração total:", err);
+          addToast('error', 'Erro', 'Erro ao re-sincronizar banco de dados inteiro.');
+        });
+    }
   };
 
   // Cross-Navigation routing triggers
@@ -216,6 +335,33 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4 text-xs">
+            {/* Cloud connection active state indicator */}
+            <div className={`flex items-center gap-2 bg-[#1A2636] border px-3 py-1.5 rounded-lg text-slate-300 transition-all duration-300 ${
+              isCloudActive ? 'border-[#00C4A7]/30 shadow-[0_0_10px_rgba(0,196,167,0.05)]' : 'border-slate-800'
+            }`}>
+              {isSyncing ? (
+                <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#00C4A7]">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-[#00C4A7]" />
+                  <span>Sincronizando...</span>
+                </div>
+              ) : isCloudActive ? (
+                <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-200">
+                  <Cloud className="w-3.5 h-3.5 text-[#00C4A7] shrink-0 fill-[#00C4A7]/10" />
+                  <span className="hidden sm:inline">Nuvem Firestore:</span>
+                  <span className="text-[#00C4A7] font-bold">Ativa</span>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00C4A7] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00C4A7]"></span>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-450">
+                  <CloudOff className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Modo Local (Offline)</span>
+                </div>
+              )}
+            </div>
+
             {/* Active alerts quick indicator pill */}
             {activeCountTotal > 0 && (
               <div 
