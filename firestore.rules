@@ -2,76 +2,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Global Safety Net: Default Deny
-    match /{document=**} {
-      allow read, write: if false;
+    // Helper to check if a document is owned by the current user
+    function isOwner(data) {
+      return request.auth != null && data.userId == request.auth.uid;
     }
 
-    // Helper functions
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    // Validation for Store
-    function isValidStore(data) {
-      return data.keys().hasAll(['id', 'nome', 'responsavel', 'telefone', 'email', 'piso', 'ativa']) 
-        && data.keys().size() <= 8 // id, nome, responsavel, telefone, email, piso, ativa, plus optional luc
-        && data.id is string && data.id.size() <= 128
-        && data.nome is string && data.nome.size() >= 1 && data.nome.size() <= 100
-        && data.responsavel is string && data.responsavel.size() >= 1 && data.responsavel.size() <= 100
-        && data.telefone is string && data.telefone.size() <= 30
-        && data.email is string && data.email.size() <= 100
-        && data.piso is string && data.piso.size() <= 10
-        && data.ativa is bool
-        && (!data.keys().hasAny(['luc']) || data.luc is string);
-    }
-
-    // Validation for Notification
-    function isValidNotification(data) {
-      // Required base fields
-      let hasRequired = data.keys().hasAll(['id', 'lojaId', 'tipo', 'titulo', 'descricao', 'dataEnvio', 'dataVencimento', 'status', 'prioridade', 'evidenciaEntrega', 'observacoes', 'criadoPor', 'historico']);
-      
-      // Basic type & size checks (expanded limits for base64)
-      let basicChecks = data.id is string 
-        && data.lojaId is string 
-        && data.tipo is string 
-        && data.titulo is string && data.titulo.size() <= 300
-        && data.descricao is string && data.descricao.size() <= 5000
-        && data.status is string
-        && data.prioridade is string
-        && (data.evidenciaEntrega == null || data.evidenciaEntrega is string)
-        && (data.observacoes == null || data.observacoes is string)
-        && data.criadoPor is string
-        && data.historico is list;
-
-      // Optional fields checks
-      let optionalChecks = (!data.keys().hasAny(['imagemNotificacao']) || data.imagemNotificacao is string)
-        && (!data.keys().hasAny(['dataFoto']) || data.dataFoto is string || data.dataFoto == null)
-        && (!data.keys().hasAny(['motivo']) || data.motivo is string || data.motivo == null)
-        && (!data.keys().hasAny(['fase']) || data.fase is string || data.fase == null)
-        && (!data.keys().hasAny(['dataResolucao']) || data.dataResolucao is string || data.dataResolucao == null);
-        
-      return hasRequired && basicChecks && optionalChecks && data.keys().size() <= 25;
+    // Helper to check if the user is the master administrator
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'isabelemfa@gmail.com';
     }
 
     match /stores/{storeId} {
-      allow read: if true;
-      allow create, update: if isValidId(storeId) && isValidStore(incoming()) && incoming().id == storeId;
-      allow delete: if isValidId(storeId);
+      allow read: if request.auth != null && (isAdmin() || resource == null || resource.data.userId == request.auth.uid || !('userId' in resource.data));
+      allow write: if request.auth != null && (isAdmin() || request.resource.data.userId == request.auth.uid || !('userId' in request.resource.data));
     }
 
     match /notifications/{notificationId} {
-      allow read: if true;
-      allow create, update: if isValidId(notificationId) && isValidNotification(incoming()) && incoming().id == notificationId;
-      allow delete: if isValidId(notificationId);
+      allow read: if request.auth != null && (isAdmin() || resource == null || resource.data.userId == request.auth.uid || !('userId' in resource.data));
+      allow write: if request.auth != null && (isAdmin() || request.resource.data.userId == request.auth.uid || !('userId' in request.resource.data));
     }
+    
+    match /user_profiles/{uid} {
+      allow read: if request.auth != null;
+    }
+    
+    // For the migration path mentioned in the error handler
+    match /migrate_local_data/{userId} {
+      allow read, write: if request.auth != null && userId == request.auth.uid;
+    }
+    
+    // Fallback for collection group queries or other collections if necessary
+    // But we only have stores and notifications for now
   }
 }

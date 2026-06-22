@@ -60,5 +60,8 @@
       "schema": "Notification",
       "description": "Collection of all operational notifications and requirements"
     }
+  },
+  "auth": {
+    "providers": ["password", "google"]
   }
 }

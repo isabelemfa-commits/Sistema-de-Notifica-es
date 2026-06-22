@@ -9,7 +9,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   ShieldCheck,
-  ShoppingBag
+  ShoppingBag,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -17,20 +18,25 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
+  userEmail?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   collapsed,
-  setCollapsed
+  setCollapsed,
+  userEmail
 }) => {
+  const isAdmin = userEmail === 'isabelemfa@gmail.com';
+
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'notifications', name: 'Notificações', icon: Bell },
     { id: 'stores', name: 'Gestão de Lojas', icon: Store },
     { id: 'floors', name: 'Painel por Piso', icon: Layers },
     { id: 'reports', name: 'Relatórios', icon: BarChart3 },
+    ...(isAdmin ? [{ id: 'users', name: 'Usuários', icon: Users }] : []),
     { id: 'settings', name: 'Configurações', icon: Settings }
   ];
 
@@ -111,11 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!collapsed ? (
           <div className="p-4 bg-[#1A2636] rounded-xl border border-[#2D3748]">
             <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider mb-2 select-none">Logado como</p>
-            <p className="text-xs font-semibold text-slate-100 truncate">isabelemfa@gmail.com</p>
-            <p className="text-[10px] text-[#00C4A7] uppercase font-bold mt-1 tracking-wider">Gestor de Operações</p>
+            <p className="text-xs font-semibold text-slate-100 truncate">{userEmail || 'Visitante'}</p>
+            <p className="text-[10px] text-[#00C4A7] uppercase font-bold mt-1 tracking-wider">
+              {isAdmin ? 'Administradora Geral' : 'Gestor de Operações'}
+            </p>
           </div>
         ) : (
-          <div className="flex justify-center text-[#00C4A7] py-2" title="Logado como isabelemfa@gmail.com">
+          <div className="flex justify-center text-[#00C4A7] py-2" title={`Logado como ${userEmail}`}>
             <ShieldCheck className="w-5 h-5" />
           </div>
         )}

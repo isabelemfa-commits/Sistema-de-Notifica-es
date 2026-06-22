@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
+import { auth } from './firebase';
 import { DatabaseState, Store, Notification, NotificationHistory } from './types';
 import { loadDatabase, saveDatabase, getNotificationDisplayStatus } from './mockData';
 import { Sidebar } from './components/Sidebar';
@@ -9,6 +11,8 @@ import { StoresView } from './components/StoresView';
 import { FloorsView } from './components/FloorsView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
+import { UserManagementView } from './components/UserManagementView';
+import { LoginView } from './components/Auth/LoginView';
 
 import { 
   Building2, 
@@ -22,7 +26,9 @@ import {
   XCircle,
   Cloud,
   CloudOff,
-  RefreshCw
+  RefreshCw,
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { 
   fetchFullDatabaseFromFirestore, 
@@ -34,13 +40,32 @@ import {
 } from './firebase';
 
 export default function App() {
+  // 0. Auth State
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // 1. Database State & Persistence synchronizer
   const [dbState, setDbState] = useState<DatabaseState>(() => loadDatabase());
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isCloudActive, setIsCloudActive] = useState<boolean>(false);
 
+  // Auth Observer
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Initial Sync with Firestore cloud
   useEffect(() => {
+    // Only sync if user is authenticated
+    if (!user) {
+      setIsCloudActive(false);
+      return;
+    }
+
     async function initFirestoreSync() {
       setIsSyncing(true);
       try {
@@ -73,7 +98,7 @@ export default function App() {
       }
     }
     initFirestoreSync();
-  }, []);
+  }, [user]);
 
   // Sync to local fallback mirror
   useEffect(() => {
@@ -286,6 +311,37 @@ export default function App() {
     }).length;
   }, [dbState.notifications, nowStr]);
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setDbState(loadDatabase()); // Reset state on logout
+      addToast('info', 'Desconectado', 'Você saiu da sua conta com sucesso.');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F1923] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-[#00C4A7] animate-spin" />
+          <p className="text-slate-400 text-sm animate-pulse">Autenticando Rio Poty...</p>
+        </div>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#0F1923]">
+        <LoginView />
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0F1923] flex font-sans">
       
@@ -304,7 +360,8 @@ export default function App() {
           }
         }} 
         collapsed={sidebarCollapsed} 
-        setCollapsed={setSidebarCollapsed} 
+        setCollapsed={setSidebarCollapsed}
+        userEmail={user?.email || undefined}
       />
 
       {/* Main Container Right */}
@@ -379,11 +436,22 @@ export default function App() {
               </div>
             )}
 
-            {/* Email signature */}
-            <div className="hidden lg:flex items-center gap-2 bg-[#0F1923] border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 font-mono">
-              <User className="w-3.5 h-3.5 text-[#00C4A7]" />
-              <span>isabelemfa@gmail.com</span>
-              <span className="text-[10px] bg-[#00C4A7]/20 text-[#00C4A7] border border-[#00C4A7]/30 px-1 rounded uppercase font-sans">Gestor</span>
+            {/* User Profile */}
+            <div className="hidden lg:flex items-center gap-3 bg-[#0F1923] border border-slate-800 py-1 pl-3 pr-1 rounded-xl group transition-all hover:border-slate-700">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-[#00C4A7] uppercase tracking-wider">{user.displayName || 'Gestor'}</span>
+                <span className="text-[9px] text-slate-500 font-mono truncate max-w-[120px]">{user.email}</span>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-[#00C4A7]/10 flex items-center justify-center text-[#00C4A7] border border-[#00C4A7]/20">
+                <User className="w-4 h-4" />
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                title="Sair do sistema"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>
@@ -448,6 +516,10 @@ export default function App() {
               pisos={dbState.pisos}
               onTriggerToast={addToast}
             />
+          )}
+
+          {activeTab === 'users' && user?.email === 'isabelemfa@gmail.com' && (
+            <UserManagementView adminEmail={user.email} />
           )}
 
           {activeTab === 'settings' && (

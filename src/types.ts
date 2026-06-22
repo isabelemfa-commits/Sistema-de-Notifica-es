@@ -1,18 +1,27 @@
 export interface Store {
   id: string;
   nome: string;
-  luc?: string; // Limit Unit Code / Número da Loja
+  luc?: string; 
   responsavel: string;
   telefone: string;
   email: string;
   piso: string;
   ativa: boolean;
+  userId?: string;
 }
 
 export interface NotificationHistory {
   data: string; // ISO String
   descricao: string;
   autor: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: 'admin' | 'user';
+  name?: string;
+  createdAt: string;
 }
 
 export interface Notification {
@@ -34,6 +43,7 @@ export interface Notification {
   imagemNotificacao?: string;
   dataFoto?: string;
   motivo?: string;
+  userId?: string;
 }
 
 export interface AppConfig {

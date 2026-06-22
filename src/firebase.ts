@@ -9,7 +9,9 @@ import {
   deleteDoc, 
   writeBatch,
   getDocFromServer,
-  enableIndexedDbPersistence
+  enableIndexedDbPersistence,
+  query,
+  where
 } from 'firebase/firestore';
 import config from '../firebase-applet-config.json';
 import { DatabaseState, Store, Notification } from './types';
@@ -102,13 +104,18 @@ testConnection();
 // Safe Database Fetch with Error Mapping
 export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseState, 'pisos' | 'categorias' | 'tiposNotificacao'>> {
   try {
-    const storesSnapshot = await getDocs(collection(db, 'stores'));
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error("User not authenticated");
+
+    const storesQuery = query(collection(db, 'stores'), where('userId', '==', userId));
+    const storesSnapshot = await getDocs(storesQuery);
     const stores: Store[] = [];
     storesSnapshot.forEach((docSnap) => {
       stores.push({ id: docSnap.id, ...docSnap.data() } as Store);
     });
 
-    const notificationsSnapshot = await getDocs(collection(db, 'notifications'));
+    const notificationsQuery = query(collection(db, 'notifications'), where('userId', '==', userId));
+    const notificationsSnapshot = await getDocs(notificationsQuery);
     const notifications: Notification[] = [];
     notificationsSnapshot.forEach((docSnap) => {
       notifications.push({ id: docSnap.id, ...docSnap.data() } as Notification);
@@ -123,16 +130,18 @@ export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseSta
 // Safe Seed & Sync Operations
 export async function migrateLocalDataToFirestore(state: DatabaseState): Promise<void> {
   try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error("User not authenticated");
     const batch = writeBatch(db);
 
     for (const store of state.stores) {
       const storeRef = doc(db, 'stores', store.id);
-      batch.set(storeRef, store);
+      batch.set(storeRef, { ...store, userId });
     }
 
     for (const notif of state.notifications) {
       const notifRef = doc(db, 'notifications', notif.id);
-      batch.set(notifRef, notif);
+      batch.set(notifRef, { ...notif, userId });
     }
 
     await batch.commit();
@@ -145,7 +154,9 @@ export async function migrateLocalDataToFirestore(state: DatabaseState): Promise
 // Safe Store & Notification CRUD Wrappers to abstract Firestore errors
 export async function saveStoreToFirestore(store: Store): Promise<void> {
   try {
-    await setDoc(doc(db, 'stores', store.id), store);
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error("User not authenticated");
+    await setDoc(doc(db, 'stores', store.id), { ...store, userId });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `stores/${store.id}`);
   }
@@ -161,7 +172,9 @@ export async function deleteStoreFromFirestore(storeId: string): Promise<void> {
 
 export async function saveNotificationToFirestore(notif: Notification): Promise<void> {
   try {
-    await setDoc(doc(db, 'notifications', notif.id), notif);
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error("User not authenticated");
+    await setDoc(doc(db, 'notifications', notif.id), { ...notif, userId });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `notifications/${notif.id}`);
   }

@@ -342,7 +342,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     if (isCreateOpen && formLojaId && formFase && formFase !== 'Geral') {
       const store = stores.find(s => s.id === formLojaId);
       if (store) {
-        const title = `${formFase.toUpperCase()} - LUC ${store.id} - ${store.nome.toUpperCase()}`;
+        const title = `${formFase.toUpperCase()} - ${store.luc || `LUC ${store.id}`} - ${store.nome.toUpperCase()}`;
         setFormTitulo(title);
         // Also set the motif for the PDF
         setFormMotivo(title);
