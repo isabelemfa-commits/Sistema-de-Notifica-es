@@ -5,10 +5,26 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
+import fs from 'fs';
+
 // Initialize Firebase Admin
 if (getApps().length === 0) {
+  let projectId = "tactical-heading-j18qq";
+  try {
+    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (config.projectId) {
+        projectId = config.projectId;
+      }
+    }
+  } catch (err) {
+    console.error("Error reading firebase-applet-config.json:", err);
+  }
+
+  console.log('Initializing Firebase Admin for project:', projectId);
   initializeApp({
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID || "tactical-heading-j18qq"
+    projectId: projectId
   });
 }
 

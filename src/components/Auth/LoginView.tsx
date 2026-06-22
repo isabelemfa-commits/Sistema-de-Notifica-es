@@ -5,8 +5,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult
+  signInWithPopup
 } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { 
@@ -31,19 +30,6 @@ export const LoginView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          console.log('Google login redirect success:', result.user.email);
-        }
-      })
-      .catch((err) => {
-        console.error('Redirect result error:', err);
-        setError('Falha ao concluir login com Google.');
-      });
-  }, []);
-
   const clearMessages = () => {
     setError(null);
     setMessage(null);
@@ -56,10 +42,11 @@ export const LoginView: React.FC = () => {
       const provider = new GoogleAuthProvider();
       // Ensure specific accounts are prompted if needed
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (err: any) {
       console.error('Google Auth error:', err);
-      setError('Erro ao iniciar login com Google. Tente novamente.');
+      setError('Erro ao entrar com Google. Tente novamente.');
+    } finally {
       setLoading(false);
     }
   };
