@@ -324,12 +324,17 @@ export default function App() {
             </button>
             
             <div className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-[#00C4A7]" />
-              <h1 className="text-sm font-bold tracking-tight text-slate-100 hidden sm:block">
-                Sistema de Notificações de loja
-              </h1>
-              <h1 className="text-sm font-bold tracking-tight text-slate-100 sm:hidden">
-                Sistema de Notificações de loja
+              <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-7 h-7">
+                  <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#00C4A7"/>
+                  <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#00C4A7"/>
+                  <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#00C4A7"/>
+                  <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#00C4A7"/>
+                  <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
+                </svg>
+              </div>
+              <h1 className="text-base font-bold tracking-tighter text-slate-100 hidden sm:block">
+                RioPoty <span className="text-[#00C4A7] font-sans font-normal tracking-normal text-xs ml-1 opacity-80">Gestão de Lojistas</span>
               </h1>
             </div>
           </div>

@@ -20,8 +20,229 @@ import {
   ChevronRight,
   FilterX,
   History,
-  AlertTriangle
+  AlertTriangle,
+  Printer,
+  FileText
 } from 'lucide-react';
+
+const compressAndSetImage = (file: File, callback: (base64: string) => void) => {
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 600;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        // Compressed JPEG base64 string
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        callback(compressedBase64);
+      }
+    };
+    img.src = event.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+};
+
+const formatDateBR = (isoStr: string | undefined): string => {
+  if (!isoStr) return '';
+  const dateObj = new Date(isoStr);
+  if (isNaN(dateObj.getTime())) return isoStr;
+  const day = String(dateObj.getUTCDate()).padStart(2, '0');
+  const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+  const year = dateObj.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const generatePrintableHTML = (notif: Notification, store?: Store): string => {
+  const faseTitle = notif.fase ? notif.fase.toUpperCase() : 'NOTIFICAÇÃO';
+  const lucStr = store?.piso ? `${store.piso} - LUC ${store.id || 'S/N'}` : `LUC ${store?.id || 'S/N'}`;
+  const storeNameText = store?.nome ? store.nome.toUpperCase() : notif.lojaId.toUpperCase();
+  const dateStr = formatDateBR(notif.dataEnvio);
+  const photoDateStr = formatDateBR(notif.dataFoto || notif.dataEnvio);
+  const motivoText = notif.motivo ? notif.motivo.toUpperCase() : notif.titulo.toUpperCase();
+
+  return `
+    <!-- Page 1 -->
+    <div class="page-break w-[210mm] min-h-[297mm] mx-auto p-[18mm] bg-white text-[#1a1a1a] text-[13px] relative flex flex-col justify-between" style="box-sizing: border-box; page-break-after: always; break-after: page;">
+      <div>
+        <!-- Brand Header Section -->
+        <div class="flex items-center justify-between border-b pb-4 mb-6 border-slate-200">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 flex items-center justify-center">
+              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10">
+                <!-- Petals Rio Poty Official Logo -->
+                <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#003026"/>
+                <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#003026"/>
+                <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#003026"/>
+                <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#003026"/>
+                <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-2xl font-extrabold tracking-tighter text-[#003026] leading-none">RioPoty</span>
+              <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Sá Cavalcante</span>
+            </div>
+          </div>
+          
+          <!-- Outer aligned badge with black outline -->
+          <div class="border border-black px-4 py-2 text-center bg-white min-w-[200px]">
+            <span class="text-xs font-extrabold block tracking-wider uppercase text-black font-sans">${faseTitle}</span>
+            <span class="text-[11px] text-slate-700 block mt-0.5">Teresina, ${dateStr}</span>
+          </div>
+        </div>
+
+        <!-- Reference Title line -->
+        <div class="mb-5 bg-slate-50 p-2.5 border border-slate-100 rounded">
+          <p class="font-extrabold text-[12px] text-slate-900 tracking-tight">
+            Ref: <span class="text-[#003026] font-mono">${faseTitle}</span> — <span class="uppercase">${lucStr}</span> — <span>${storeNameText}</span>
+          </p>
+        </div>
+
+        <!-- Formal Salutation -->
+        <p class="font-bold text-slate-800 mb-3">Prezado Sr. Lojista e/ou Responsável,</p>
+
+        <!-- Dynamic Body Text -->
+        <p class="text-justify mb-4 text-slate-700 leading-relaxed font-sans">
+          A Administração, em sua busca contínua pela melhoria das instalações e funcionamento do <strong>Shopping Rio Poty</strong>, incumbe-se do dever de alertar V.S.ª e solicitar que sejam tomadas imediatamente as medidas necessárias para correção dos apontamentos técnicos de desconformidade registrados na vistoria, conforme descrição em tela e anexo fotográfico anexo.
+        </p>
+
+        <p class="text-sm font-bold text-slate-800 mb-2">Em observância ao disposto nas normas contratuais (Cláusulas 8.15 e 8.15.1 da Escritura de Normas Gerais):</p>
+
+        <!-- Transcription text boxes -->
+        <div class="space-y-3 mb-4">
+          <div class="bg-gray-50 border-l-4 border-slate-400 p-2.5 text-[11px] text-slate-600 text-justify leading-relaxed rounded-r italic">
+            <strong>8.15.</strong> — A LOCATÁRIA deverá manter, ininterruptamente, o seu SALÃO DE USO COMERCIAL em perfeito estado de conservação, segurança, higiene e asseio, inclusive no tocante às entradas, vidros, esquadrias, vitrinas, letreiros, fachadas, pisos, acabamentos, divisões, portas, acessórios, equipamentos, benfeitorias, iluminação, aparelhos elétricos, instalações sanitárias e hidráulicas, ar condicionado, ventilação, fazendo executar pinturas e reparos, se for o caso, bem como imunização contra insetos e roedores, periódicos, de modo a mantê-lo em perfeito estado e devolvê-lo, ao término da locação, em condições de ser imediatamente ocupado... A LOCADORA se reserva o direito de fiscalizar o cumprimento das obrigações estabelecidas neste item.
+          </div>
+          <div class="bg-gray-50 border-l-4 border-slate-400 p-2.5 text-[11px] text-slate-600 text-justify leading-relaxed rounded-r italic">
+            <strong>8.15.1.</strong> — Caso a LOCADORA venha a solicitar, por escrito, à LOCATÁRIA, o conserto, reparo, ou execução de serviço, de algum dos pontos mencionados no item 8.15, e estes não sejam executados em até 5 (cinco) dias após o recebimento da solicitação, a LOCATÁRIA incorrerá em multa diária calculada sobre o aluguel mensal mínimo vigente à data da infração... A multa aqui prevista será devida até que os serviços sejam satisfatoriamente concluídos.
+          </div>
+        </div>
+
+        <!-- MOTIVO DA NOTIFICAÇÃO in red uppercase -->
+        <div class="border-y-2 border-slate-100 py-3 mb-4 bg-red-50/50 px-3 rounded-lg">
+          <p class="text-xs font-bold text-red-500 uppercase tracking-wider">MOTIVO DA NOTIFICAÇÃO:</p>
+          <p class="text-[13px] font-extrabold text-red-700 mt-1 uppercase font-sans">${motivoText}</p>
+        </div>
+
+        <!-- Deadline message -->
+        <p class="text-justify mb-4 text-slate-700 leading-relaxed">
+          Solicitamos que a correção da irregularidade apontada seja realizada no <strong>prazo máximo de 05 (cinco) dias úteis</strong>, contados a partir do recebimento formal desta correspondência, sob pena de aplicação de multa contratual diária e sanções cumulativas aplicáveis após o envio de avisos repetidos subsequentes, nos termos do Regulamento Interno em vigor.
+        </p>
+
+        <p class="text-xs text-slate-500 font-medium mb-5">Contato Operacional: <span class="font-mono text-slate-700">operacoes.srp@sacavalcante.com.br</span></p>
+      </div>
+
+      <!-- Footer & Signature Areas -->
+      <div>
+        <div class="flex items-end justify-between border-t pt-5 border-slate-100 mb-3">
+          <div class="text-slate-600 text-xs text-left">
+            <p>Certos de suas providências, agradecemos.</p>
+            <p class="font-semibold text-slate-800 mt-1">Cordialmente,</p>
+            <p class="font-bold text-[#003026] mt-5">Gestão de Operações — Shopping Rio Poty</p>
+          </div>
+          
+          <!-- Receipt box on the right -->
+          <div class="border border-slate-350 p-4 rounded bg-slate-50 text-slate-800 min-w-[260px] text-xs">
+            <p class="font-extrabold text-slate-900 tracking-wider mb-2 text-center text-[10px] uppercase">Favor Acusar Recebimento</p>
+            <p class="mt-2.5">RECEBIDO POR:  _________________________________</p>
+            <p class="mt-3">RECEBIDO EM:  ______ / ______ / 2026</p>
+          </div>
+        </div>
+
+        <!-- Standardised Bottom Footer with full width address -->
+        <div class="border border-slate-300 p-2 text-center text-[10px] text-slate-500 rounded bg-white">
+          <p class="font-bold text-slate-700">Sr. Gerente, favor encaminhar esta correspondência ao proprietário.</p>
+          <p class="mt-0.5 font-mono">Av. Marechal Castelo Branco, 911, Porenquanto, Teresina - PI  |  www.shoppingriopoty.com.br</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page 2 - ANEXOS -->
+    <div class="w-[210mm] min-h-[297mm] mx-auto p-[18mm] bg-white text-[#1a1a1a] text-[13px] relative flex flex-col justify-between" style="box-sizing: border-box;">
+      <div>
+        <!-- Page 2 Brand Header -->
+        <div class="flex items-center justify-between border-b pb-4 mb-6 border-slate-200">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 flex items-center justify-center">
+              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10">
+                <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#003026"/>
+                <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#003026"/>
+                <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#003026"/>
+                <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#003026"/>
+                <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-2xl font-extrabold tracking-tighter text-[#003026] leading-none">RioPoty</span>
+              <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Sá Cavalcante</span>
+            </div>
+          </div>
+          
+          <div class="border border-slate-300 px-4 py-2 text-center bg-slate-50 min-w-[200px] rounded">
+            <span class="text-xs font-extrabold block text-slate-700 tracking-wider">REGISTRO DE VISTORIA</span>
+            <span class="text-[10px] text-slate-500 block">Fotografia Comprobatória</span>
+          </div>
+        </div>
+
+        <!-- Centered Section Title and description -->
+        <div class="text-center mb-6">
+          <h2 class="text-lg font-extrabold text-slate-900 tracking-widest uppercase">ANEXOS FOTOGRÁFICOS</h2>
+          <p class="text-xs text-slate-500 mt-1">Evidências da infração apontada registrada pelo fiscal de operações</p>
+        </div>
+
+        <!-- Responsive Centered containment check for photo -->
+        <div class="flex flex-col items-center justify-center border border-slate-200 rounded-xl bg-slate-50 p-4 my-4 group min-h-[360px]">
+          ${notif.imagemNotificacao ? `
+            <img src="${notif.imagemNotificacao}" class="max-h-[170mm] max-w-full object-contain rounded-lg border border-slate-350 shadow-md bg-white p-1" style="max-height: 480px;" alt="Evidência fotográfica" />
+            <div class="mt-4 bg-white border border-slate-200 rounded px-4 py-1.5 shadow-sm text-center">
+              <p class="text-xs font-bold text-slate-700">Data de Registro Comprobatório: <span class="font-mono text-red-600">${photoDateStr}</span></p>
+            </div>
+          ` : `
+            <div class="text-center p-8">
+              <div class="w-16 h-16 flex items-center justify-center bg-red-100 rounded-full mx-auto text-red-600 mb-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </div>
+              <p class="text-sm font-extrabold text-slate-800">Nenhuma Fotografia de Evidência Anexada</p>
+              <p class="text-xs text-slate-500 max-w-xs mt-1.5 mx-auto">Esta notificação requer a presença de evidência visual para download formal do documento de intimação.</p>
+            </div>
+          `}
+        </div>
+      </div>
+
+      <!-- Footer at the final printout of sheet 2 -->
+      <div class="mt-auto">
+        <div class="border border-slate-300 p-2 text-center text-[10px] text-slate-500 rounded bg-white mt-8">
+          <p class="font-bold text-slate-700">Sr. Gerente, favor encaminhar esta correspondência ao proprietário.</p>
+          <p class="mt-0.5 font-mono">Av. Marechal Castelo Branco, 911, Porenquanto, Teresina - PI  |  www.shoppingriopoty.com.br</p>
+        </div>
+      </div>
+    </div>
+  `;
+};
 
 interface NotificationsViewProps {
   stores: Store[];
@@ -96,16 +317,38 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [formEvidencia, setFormEvidencia] = useState('');
   const [formObservacoes, setFormObservacoes] = useState('');
   const [formCriadoPor, setFormCriadoPor] = useState('Mariana Costa (Coordenação Lojistas)');
-  const [formFase, setFormFase] = useState<'1ª Notificação' | '2ª Notificação' | '3ª Notificação' | 'Geral'>('Geral');
+  const [formFase, setFormFase] = useState<string>('Geral');
+  
+  // Custom generated PDF parameters: photo, photo date, and specific warning motif
+  const [formImagemNotificacao, setFormImagemNotificacao] = useState<string>('');
+  const [formDataFoto, setFormDataFoto] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [formMotivo, setFormMotivo] = useState<string>('');
 
-  // Automatically enforce 7-day deadline for phase notifications (1ª, 2ª, 3ª)
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewNotification, setPreviewNotification] = useState<Notification | null>(null);
+
+  // Automatically enforce 7-day deadline for phase notifications (1ª, 2ª, 3ª, 4ª)
   useEffect(() => {
-    if (formFase === '1ª Notificação' || formFase === '2ª Notificação' || formFase === '3ª Notificação') {
+    if (formFase.includes('Notificação')) {
       const d = new Date(formDataEnvio);
       d.setDate(d.getDate() + 7);
       setFormDataVencimento(d.toISOString().split('T')[0]);
     }
   }, [formFase, formDataEnvio]);
+
+  // Automatically generate title based on Phase and Store
+  useEffect(() => {
+    // Only auto-generate if we are creating or if the title is still following the auto-pattern
+    if (isCreateOpen && formLojaId && formFase && formFase !== 'Geral') {
+      const store = stores.find(s => s.id === formLojaId);
+      if (store) {
+        const title = `${formFase.toUpperCase()} - LUC ${store.id} - ${store.nome.toUpperCase()}`;
+        setFormTitulo(title);
+        // Also set the motif for the PDF
+        setFormMotivo(title);
+      }
+    }
+  }, [formLojaId, formFase, isCreateOpen, stores]);
 
   // Unpack prefill directives from other views (e.g., Phase Tracker)
   useEffect(() => {
@@ -299,6 +542,146 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   };
 
+  const handlePrintDocument = (notif: Notification) => {
+    const store = stores.find(s => s.id === notif.lojaId);
+    const htmlBody = generatePrintableHTML(notif, store);
+    
+    const fullHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${notif.fase || 'Notificação'} - ${store?.nome || notif.lojaId}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body {
+              font-family: 'Inter', sans-serif;
+              background-color: #f3f4f6;
+              margin: 0;
+              padding: 0;
+            }
+            @media print {
+              body {
+                background-color: #ffffff;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              .page-break {
+                page-break-after: always;
+                break-after: page;
+              }
+            }
+          </style>
+        </head>
+        <body class="bg-gray-100 p-4">
+          <div class="no-print max-w-[210mm] mx-auto mb-4 bg-yellow-50 border border-yellow-250 p-3 rounded-lg text-yellow-800 text-xs text-center flex items-center justify-center gap-2">
+            <span>✨ Se a visualização estiver cortada, verifique se a folha está em tamanho <strong>A4 (Retrato)</strong> e habilite <strong>Gráficos de Fundo</strong>.</span>
+          </div>
+          <div id="document-root">
+            ${htmlBody}
+          </div>
+        </body>
+      </html>
+    `;
+    
+    const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = url;
+    
+    document.body.appendChild(iframe);
+    
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(url);
+      }, 2000);
+    };
+  };
+
+  const handleDownloadStandaloneHTML = (notif: Notification) => {
+    const store = stores.find(s => s.id === notif.lojaId);
+    const htmlBody = generatePrintableHTML(notif, store);
+    const fileName = `Notificacao_${notif.fase ? notif.fase.replace(/\s+/g, '_') : 'Geral'}_LUC_${store?.id || notif.lojaId}.html`;
+    
+    const fullHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${notif.fase || 'Notificação'} - ${store?.nome || notif.lojaId}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;505;600;700;800&display=swap');
+            body {
+              font-family: 'Inter', sans-serif;
+              background-color: #f3f4f6;
+              margin: 0;
+              padding: 40px 0;
+            }
+            @media print {
+              body {
+                background-color: #ffffff;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              .page-break {
+                page-break-after: always;
+                break-after: page;
+              }
+            }
+          </style>
+        </head>
+        <body class="bg-gray-100">
+          <div class="no-print max-w-[210mm] mx-auto mb-4 bg-white border border-gray-200 p-4 rounded-xl shadow-md text-slate-800 text-xs flex items-center justify-between font-sans">
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Documento de Notificação — Rio Poty</h3>
+              <p class="text-slate-500 mt-1">Este arquivo autônomo de alta fidelidade contém toda a estrutura e imagens em base64 para arquivamento ou impressão offline.</p>
+            </div>
+            <button onclick="window.print()" class="bg-[#00C4A7] hover:bg-[#00B096] text-slate-900 font-bold px-4 py-2 rounded-lg transition-colors">
+              Imprimir / Salvar PDF
+            </button>
+          </div>
+          <div id="document-root">
+            ${htmlBody}
+          </div>
+        </body>
+      </html>
+    `;
+    
+    const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onTriggerToast('success', 'Documento Emitido para Download', 'Arquivo HTML autônomo gerado com sucesso!');
+  };
+
+  const handleOpenDocumentPreview = (notif: Notification) => {
+    setPreviewNotification(notif);
+    setIsPreviewModalOpen(true);
+  };
+
   // Row Quick Status Dropdown Handler
   const handleInlineStatusChange = (n: Notification, nextStatus: any) => {
     try {
@@ -390,7 +773,10 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       evidenciaEntrega: formEvidencia || 'Notificação no Sistema',
       observacoes: formObservacoes,
       criadoPor: formCriadoPor,
-      historico: [createdHistory]
+      historico: [createdHistory],
+      imagemNotificacao: formImagemNotificacao || '',
+      dataFoto: formDataFoto || '',
+      motivo: formMotivo || formTitulo
     });
 
     setIsCreateOpen(false);
@@ -401,6 +787,9 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     setFormEvidencia('');
     setFormObservacoes('');
     setFormFase('Geral');
+    setFormImagemNotificacao('');
+    setFormDataFoto(new Date().toISOString().split('T')[0]);
+    setFormMotivo('');
     onTriggerToast('success', 'Notificação Registrada', 'Novo comunicado ativo criado no sistema.');
   };
 
@@ -419,6 +808,9 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     setFormEvidencia(n.evidenciaEntrega);
     setFormObservacoes(n.observacoes);
     setFormCriadoPor(n.criadoPor);
+    setFormImagemNotificacao(n.imagemNotificacao || '');
+    setFormDataFoto(n.dataFoto || (n.dataEnvio ? new Date(n.dataEnvio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]));
+    setFormMotivo(n.motivo || '');
     setIsEditOpen(true);
   };
 
@@ -458,7 +850,10 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       evidenciaEntrega: formEvidencia,
       observacoes: formObservacoes,
       criadoPor: formCriadoPor,
-      historico: [...selectedNotification.historico, editHistoryItem]
+      historico: [...selectedNotification.historico, editHistoryItem],
+      imagemNotificacao: formImagemNotificacao,
+      dataFoto: formDataFoto,
+      motivo: formMotivo || formTitulo
     };
 
     onUpdateNotification(updated);
@@ -810,6 +1205,15 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                             <Eye className="w-4 h-4" />
                           </button>
 
+                          {/* Interactive PDF Document Preview and Print */}
+                          <button 
+                            onClick={() => handleOpenDocumentPreview(n)}
+                            className="p-1 text-[#00C4A7] hover:text-[#00B096] hover:bg-slate-800 rounded transition-colors"
+                            title="Gerar e Enviar Documento de Notificação"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+
                           {/* Quick Edit button */}
                           <button 
                             onClick={() => handleOpenEdit(n)}
@@ -1037,20 +1441,27 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             <div className="p-4 bg-[#151F2D] border-t border-[#253549] flex gap-2 shrink-0">
               <button 
-                onClick={() => { setIsDetailOpen(false); handleOpenEdit(selectedNotification); }}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-[#00C4A7] py-2 rounded-lg text-xs font-semibold"
+                onClick={() => handleOpenDocumentPreview(selectedNotification)}
+                className="flex-1 bg-[#00C4A7] hover:bg-[#00B096] text-slate-900 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
               >
-                Editar Registro
+                <Printer className="w-4 h-4" />
+                Imprimir / PDF
+              </button>
+              <button 
+                onClick={() => { setIsDetailOpen(false); handleOpenEdit(selectedNotification); }}
+                className="bg-slate-800 hover:bg-slate-700 text-[#00C4A7] px-3 py-2 rounded-lg text-xs font-semibold"
+              >
+                Editar
               </button>
               <button 
                 onClick={() => handleOpenAddObs(selectedNotification)}
-                className="bg-slate-750 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs"
+                className="bg-slate-750 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs"
               >
-                Observação
+                Obs
               </button>
               <button 
                 onClick={() => setIsDetailOpen(false)}
-                className="bg-slate-900 hover:bg-slate-850 text-slate-400 px-4 py-2 rounded-lg text-xs"
+                className="bg-slate-900 hover:bg-slate-850 text-slate-400 px-3 py-2 rounded-lg text-xs"
               >
                 Fechar
               </button>
@@ -1107,33 +1518,52 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Acompanhamento / Fase *</label>
                   <select 
                     value={formFase}
-                    onChange={(e) => setFormFase(e.target.value as any)}
+                    onChange={(e) => setFormFase(e.target.value)}
                     className="w-full bg-[#0F1923] border border-[#00C4A7]/30 text-xs text-[#00C4A7] font-semibold rounded-lg p-2 focus:outline-none"
                   >
                     <option value="Geral">Comunicado Geral</option>
                     <option value="1ª Notificação">1ª Notificação (Prazo 7d)</option>
                     <option value="2ª Notificação">2ª Notificação (Prazo 7d)</option>
                     <option value="3ª Notificação">3ª Notificação (Prazo 7d)</option>
+                    <option value="4ª Notificação">4ª Notificação (Prazo 7d)</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-slate-450 uppercase font-bold mb-1">Título da Notificação *</label>
-                <input 
-                  type="text" 
-                  value={formTitulo}
-                  onChange={(e) => setFormTitulo(e.target.value)}
-                  placeholder="Ex: Obstrução de Rota Técnica Condominial"
-                  required
-                  className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none focus:border-[#00C4A7]"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-450 uppercase font-bold mb-1">Título da Notificação *</label>
+                  <input 
+                    type="text" 
+                    value={formTitulo}
+                    onChange={(e) => {
+                      setFormTitulo(e.target.value);
+                      if (!formMotivo) {
+                        setFormMotivo(e.target.value.toUpperCase());
+                      }
+                    }}
+                    placeholder="Ex: Obstrução de Rota Técnica"
+                    required
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none focus:border-[#00C4A7]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-450 uppercase font-bold mb-1">Motivo da Notificação (Doc) *</label>
+                  <input 
+                    type="text" 
+                    value={formMotivo}
+                    onChange={(e) => setFormMotivo(e.target.value.toUpperCase())}
+                    placeholder="Ex: REGULARIZAÇÃO DO COMODATO"
+                    required
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none focus:border-[#00C4A7]"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-[10px] text-slate-450 uppercase font-bold mb-1">Descrição Detalhada *</label>
                 <textarea 
-                  rows={3}
+                  rows={2}
                   value={formDescricao}
                   onChange={(e) => setFormDescricao(e.target.value)}
                   placeholder="Descreva minuciosamente a exigência técnica, comunicados ou observações ocorridas..."
@@ -1163,6 +1593,62 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* PDF Photo Upload Box & Photo Date */}
+              <div className="grid grid-cols-2 gap-3 border border-dashed border-[#253549] p-3 rounded-xl bg-black/10">
+                <div>
+                  <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Data da Foto *</label>
+                  <input 
+                    type="date"
+                    value={formDataFoto}
+                    onChange={(e) => setFormDataFoto(e.target.value)}
+                    required
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Anexar Foto (Evidência) *</label>
+                  <div 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) compressAndSetImage(file, setFormImagemNotificacao);
+                    }}
+                    className="relative flex flex-col items-center justify-center border border-dashed border-slate-700 hover:border-[#00C4A7] rounded-lg p-2 cursor-pointer bg-[#0F1923] transition-colors"
+                  >
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      id="create-modal-file-photo"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) compressAndSetImage(file, setFormImagemNotificacao);
+                      }}
+                    />
+                    <label htmlFor="create-modal-file-photo" className="cursor-pointer text-[11px] text-slate-300 text-center font-medium py-1 w-full">
+                      {formImagemNotificacao ? '✓ Foto Anexada' : 'Clique ou Solte Imagem'}
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {formImagemNotificacao && (
+                <div className="relative border border-[#253549] rounded-lg overflow-hidden bg-[#0F1923] p-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src={formImagemNotificacao} alt="Preview" className="h-10 w-14 object-cover rounded border border-[#253549]" />
+                    <span className="text-[10px] text-slate-400">Evidência registrada para o documento</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormImagemNotificacao('')}
+                    className="text-[10px] text-red-400 hover:text-red-300 p-1 font-semibold"
+                  >
+                    Remover
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1282,31 +1768,48 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Acompanhamento / Fase</label>
                   <select 
                     value={formFase}
-                    onChange={(e) => setFormFase(e.target.value as any)}
+                    onChange={(e) => setFormFase(e.target.value)}
                     className="w-full bg-[#0F1923] border border-[#00C4A7]/30 text-[#00C4A7] text-xs font-semibold rounded-lg p-2 focus:outline-none"
                   >
                     <option value="Geral">Comunicado Geral</option>
                     <option value="1ª Notificação">1ª Notificação (Prazo 7d)</option>
                     <option value="2ª Notificação">2ª Notificação (Prazo 7d)</option>
                     <option value="3ª Notificação">3ª Notificação (Prazo 7d)</option>
+                    <option value="4ª Notificação">4ª Notificação (Prazo 7d)</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Título da Notificação *</label>
-                <input 
-                  type="text" 
-                  value={formTitulo}
-                  onChange={(e) => setFormTitulo(e.target.value)}
-                  className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Título da Notificação *</label>
+                  <input 
+                    type="text" 
+                    value={formTitulo}
+                    onChange={(e) => {
+                      setFormTitulo(e.target.value);
+                      if (!formMotivo) {
+                        setFormMotivo(e.target.value.toUpperCase());
+                      }
+                    }}
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Motivo da Notificação (Doc) *</label>
+                  <input 
+                    type="text" 
+                    value={formMotivo}
+                    onChange={(e) => setFormMotivo(e.target.value.toUpperCase())}
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none focus:border-[#00C4A7]"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Descrição</label>
                 <textarea 
-                  rows={3}
+                  rows={2}
                   value={formDescricao}
                   onChange={(e) => setFormDescricao(e.target.value)}
                   className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
@@ -1333,6 +1836,62 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* PDF Photo Upload Box & Photo Date */}
+              <div className="grid grid-cols-2 gap-3 border border-dashed border-[#253549] p-3 rounded-xl bg-black/10">
+                <div>
+                  <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Data da Foto *</label>
+                  <input 
+                    type="date"
+                    value={formDataFoto}
+                    onChange={(e) => setFormDataFoto(e.target.value)}
+                    required
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Alterar Foto (Evidência)</label>
+                  <div 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) compressAndSetImage(file, setFormImagemNotificacao);
+                    }}
+                    className="relative flex flex-col items-center justify-center border border-dashed border-slate-700 hover:border-[#00C4A7] rounded-lg p-2 cursor-pointer bg-[#0F1923] transition-colors"
+                  >
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      id="edit-modal-file-photo"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) compressAndSetImage(file, setFormImagemNotificacao);
+                      }}
+                    />
+                    <label htmlFor="edit-modal-file-photo" className="cursor-pointer text-[11px] text-slate-300 text-center font-medium py-1 w-full font-sans">
+                      {formImagemNotificacao ? '✓ Foto Anexada' : 'Clique ou Solte Imagem'}
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {formImagemNotificacao && (
+                <div className="relative border border-[#253549] rounded-lg overflow-hidden bg-[#0F1923] p-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src={formImagemNotificacao} alt="Preview" className="h-10 w-14 object-cover rounded border border-[#253549]" />
+                    <span className="text-[10px] text-slate-400">Evidência anexada para o documento</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormImagemNotificacao('')}
+                    className="text-[10px] text-red-400 hover:text-red-300 p-1 font-semibold"
+                  >
+                    Remover
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1479,6 +2038,70 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   Gravar Histórico
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE DOCUMENT PREVIEW MODAL (OFFICIAL RIO POTY NOTIFICATION SHEETS) */}
+      {isPreviewModalOpen && previewNotification && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#1A2636] border border-[#253549] max-w-4xl w-full rounded-2xl shadow-2xl overflow-hidden font-sans flex flex-col h-[90vh]">
+            {/* Top Action Bar */}
+            <div className="p-4 border-b border-[#253549] flex items-center justify-between bg-[#151F2D] shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#00C4A7]" />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-100">Visualização de Emissão de Notificação</h4>
+                  <p className="text-[10px] text-slate-400">Verifique a diagramação do documento de 2 páginas antes de baixar ou imprimir</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDownloadStandaloneHTML(previewNotification)}
+                  className="bg-slate-800 hover:bg-slate-700 text-[#00C4A7] border border-[#00C4A7]/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                >
+                  Baixar Arquivo Completo (.html)
+                </button>
+                <button 
+                  onClick={() => handlePrintDocument(previewNotification)}
+                  className="bg-[#00C4A7] hover:bg-[#00B096] text-slate-900 px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimir / Salvar PDF
+                </button>
+                <button 
+                  onClick={() => setIsPreviewModalOpen(false)} 
+                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* A4 Page Render Sheets Viewport */}
+            <div className="p-6 bg-slate-900 overflow-y-auto flex-1 flex flex-col items-center gap-8 shadow-inner">
+              <div className="text-center text-xs text-[#00C4A7]/80 bg-[#00C4A7]/10 border border-[#00C4A7]/20 px-4 py-2 rounded-lg max-w-lg mb-2 w-full">
+                <strong>💡 DICA DE IMPRESSÃO:</strong> Na caixa de diálogo de impressão que abrir, selecione a orientação <strong>Retrato (Portrait)</strong>, tamanho do papel <strong>A4</strong> e ative a opção <strong>Gráficos de Fundo</strong>.
+              </div>
+
+              {/* On-screen A4 Page Mock Frame */}
+              <div className="shadow-2xl border border-slate-700 bg-white scale-[0.95] origin-top rounded-lg overflow-hidden shrink-0">
+                <div 
+                  className="p-0 m-0 print:bg-white bg-white"
+                  dangerouslySetInnerHTML={{ 
+                    __html: generatePrintableHTML(
+                      previewNotification, 
+                      stores.find(s => s.id === previewNotification.lojaId)
+                    ) 
+                  }} 
+                />
+              </div>
+            </div>
+
+            {/* Bottom Footer Action Guidance */}
+            <div className="p-3 bg-[#151F2D] border-t border-[#253549] text-center text-[11px] text-slate-400 shrink-0">
+              Emitido via Sistema Integrado de Operações e Gestão de Lojistas — Shopping Rio Poty
             </div>
           </div>
         </div>

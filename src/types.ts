@@ -26,11 +26,14 @@ export interface Notification {
   dataResolucao: string | null; // ISO String or null
   status: 'Pendente' | 'Em Andamento' | 'Resolvida' | 'Vencida' | 'Cancelada';
   prioridade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
-  fase?: '1ª Notificação' | '2ª Notificação' | '3ª Notificação' | 'Geral';
+  fase?: string;
   evidenciaEntrega: string;
   observacoes: string;
   criadoPor: string;
   historico: NotificationHistory[];
+  imagemNotificacao?: string;
+  dataFoto?: string;
+  motivo?: string;
 }
 
 export interface AppConfig {

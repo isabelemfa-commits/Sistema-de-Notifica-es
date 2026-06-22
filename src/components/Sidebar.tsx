@@ -44,13 +44,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Logo area */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-[#1E293B]">
           <div className="flex items-center gap-3 overflow-hidden animate-fade-in">
-            <div className="p-2 bg-[#00C4A7]/10 text-[#00C4A7] rounded-lg shrink-0">
-              <ShoppingBag className="w-6 h-6 animate-pulse" />
+            <div className="w-10 h-10 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-9">
+                {/* Petals Rio Poty Official Logo */}
+                <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#00C4A7"/>
+                <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#00C4A7"/>
+                <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#00C4A7"/>
+                <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#00C4A7"/>
+                <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
+              </svg>
             </div>
             {!collapsed && (
-              <span className="font-bold tracking-tight text-sm text-slate-100 uppercase select-none whitespace-nowrap">
-                Notif<span className="text-[#00C4A7]">Loja</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="font-extrabold tracking-tighter text-xl text-slate-100 leading-none select-none">
+                  RioPoty
+                </span>
+                <span className="text-[8px] uppercase tracking-[0.2em] text-slate-400 font-bold leading-none mt-1">
+                  Sá Cavalcante
+                </span>
+              </div>
             )}
           </div>
           
