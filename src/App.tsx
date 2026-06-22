@@ -255,7 +255,6 @@ export default function App() {
               stores={dbState.stores}
               notifications={dbState.notifications}
               pisos={dbState.pisos}
-              categorias={dbState.categorias}
               tiposNotificacao={dbState.tiposNotificacao}
               initialFilters={outerNotificationFilters}
               onAddNotification={handleAddNotification}
@@ -270,7 +269,6 @@ export default function App() {
               stores={dbState.stores}
               notifications={dbState.notifications}
               pisos={dbState.pisos}
-              categorias={dbState.categorias}
               onAddStore={handleAddStore}
               onUpdateStore={handleUpdateStore}
               onDeleteStore={handleDeleteStore}

@@ -40,7 +40,6 @@ interface StoresViewProps {
   stores: Store[];
   notifications: Notification[];
   pisos: string[];
-  categorias: string[];
   onAddStore: (store: Omit<Store, 'id'>) => void;
   onUpdateStore: (store: Store) => void;
   onDeleteStore: (storeId: string) => void;
@@ -52,7 +51,6 @@ export const StoresView: React.FC<StoresViewProps> = ({
   stores,
   notifications,
   pisos,
-  categorias,
   onAddStore,
   onUpdateStore,
   onDeleteStore,
@@ -63,7 +61,6 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
   // Filter States
   const [filterPiso, setFilterPiso] = useState<string>('');
-  const [filterCategoria, setFilterCategoria] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Local state for active sub-view
@@ -74,22 +71,20 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
   // New Store Form Stating
   const [newNome, setNewNome] = useState('');
-  const [newCnpj, setNewCnpj] = useState('');
+  const [newLuc, setNewLuc] = useState('');
   const [newResponsavel, setNewResponsavel] = useState('');
   const [newTelefone, setNewTelefone] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newPiso, setNewPiso] = useState(pisos[0] || 'Piso Térreo');
-  const [newCategoria, setNewCategoria] = useState(categorias[0] || 'Moda');
+  const [newPiso, setNewPiso] = useState(pisos[0] || 'L1');
 
   // Edit Store Cadastral Form
   const [editMode, setEditMode] = useState(false);
   const [editNome, setEditNome] = useState('');
-  const [editCnpj, setEditCnpj] = useState('');
+  const [editLuc, setEditLuc] = useState('');
   const [editResponsavel, setEditResponsavel] = useState('');
   const [editTelefone, setEditTelefone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPiso, setEditPiso] = useState('');
-  const [editCategoria, setEditCategoria] = useState('');
   const [editAtiva, setEditAtiva] = useState(true);
 
   // Custom delete confirmation modal state
@@ -99,17 +94,16 @@ export const StoresView: React.FC<StoresViewProps> = ({
   const filteredStores = useMemo(() => {
     return stores.filter(s => {
       if (filterPiso && s.piso !== filterPiso) return false;
-      if (filterCategoria && s.categoria !== filterCategoria) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = s.nome.toLowerCase().includes(q);
         const matchesResp = s.responsavel.toLowerCase().includes(q);
-        const matchesCnpj = s.cnpj?.toLowerCase().includes(q) || false;
-        if (!matchesName && !matchesResp && !matchesCnpj) return false;
+        const matchesLuc = s.luc?.toLowerCase().includes(q) || false;
+        if (!matchesName && !matchesResp && !matchesLuc) return false;
       }
       return true;
     });
-  }, [stores, filterPiso, filterCategoria, searchQuery]);
+  }, [stores, filterPiso, searchQuery]);
 
   // Aggregate stats per store for list visual counters
   const storeCounters = useMemo(() => {
@@ -197,12 +191,11 @@ export const StoresView: React.FC<StoresViewProps> = ({
   const handleOpenStoreProfile = (store: Store) => {
     setSelectedStoreId(store.id);
     setEditNome(store.nome);
-    setEditCnpj(store.cnpj || '');
+    setEditLuc(store.luc || '');
     setEditResponsavel(store.responsavel);
     setEditTelefone(store.telefone);
     setEditEmail(store.email);
     setEditPiso(store.piso);
-    setEditCategoria(store.categoria);
     setEditAtiva(store.ativa);
     setEditMode(false);
   };
@@ -216,7 +209,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
     if (!deleteConfirmStore) return;
     onDeleteStore(deleteConfirmStore.id);
     if (selectedStoreId === deleteConfirmStore.id) {
-      setSelectedStoreId(null);
+       setSelectedStoreId(null);
     }
     onTriggerToast('success', 'Loja Removida', `A loja "${deleteConfirmStore.nome}" e todo o seu histórico foram excluídos.`);
     setDeleteConfirmStore(null);
@@ -230,12 +223,11 @@ export const StoresView: React.FC<StoresViewProps> = ({
     onUpdateStore({
       id: selectedStoreId,
       nome: editNome,
-      cnpj: editCnpj,
+      luc: editLuc,
       responsavel: editResponsavel,
       telefone: editTelefone,
       email: editEmail,
       piso: editPiso,
-      categoria: editCategoria,
       ativa: editAtiva
     });
 
@@ -252,19 +244,18 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
     onAddStore({
       nome: newNome,
-      cnpj: newCnpj,
+      luc: newLuc,
       responsavel: newResponsavel,
       telefone: newTelefone,
       email: newEmail,
       piso: newPiso,
-      categoria: newCategoria,
       ativa: true
     });
 
     setIsNewStoreOpen(false);
     // Reset inputs
     setNewNome('');
-    setNewCnpj('');
+    setNewLuc('');
     setNewResponsavel('');
     setNewTelefone('');
     setNewEmail('');
@@ -286,7 +277,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
                 </span>
                 <input 
                   type="text" 
-                  placeholder="Buscar pelo nome da loja, gerente, responsável ou CNPJ..."
+                  placeholder="Buscar pelo nome da loja, gerente, responsável ou LUC..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-[#0F1923] border border-[#253549] text-slate-100 placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-[#00C4A7] focus:ring-1 focus:ring-[#00C4A7] text-sm"
@@ -304,7 +295,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-[#253549]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 border-t border-[#253549]">
               <div>
                 <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Filtrar por Piso</label>
                 <select 
@@ -315,20 +306,6 @@ export const StoresView: React.FC<StoresViewProps> = ({
                   <option value="">(Todos os Pisos)</option>
                   {pisos.map(p => (
                     <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Filtrar por Categoria</label>
-                <select 
-                  value={filterCategoria}
-                  onChange={(e) => setFilterCategoria(e.target.value)}
-                  className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-[#00C4A7]"
-                >
-                  <option value="">(Todas as Categorias)</option>
-                  {categorias.map(c => (
-                    <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
@@ -362,9 +339,6 @@ export const StoresView: React.FC<StoresViewProps> = ({
                       {/* Top Header info */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight bg-slate-800 px-2 py-0.5 rounded border border-slate-750 inline-block mb-1">
-                            {store.categoria}
-                          </p>
                           <h4 className="text-base font-bold text-slate-100 flex items-center gap-1.5 mt-1 truncate">
                             {store.nome}
                             {!store.ativa && <span className="text-[10px] font-sans text-red-500 font-bold border border-red-500/20 px-1 rounded">INATIVA</span>}
@@ -504,19 +478,13 @@ export const StoresView: React.FC<StoresViewProps> = ({
                       </div>
                       
                       <div>
-                        <span className="text-[10px] text-slate-450 uppercase block">CNPJ Técnico</span>
-                        <p className="text-xs font-mono text-slate-300 mt-0.5">{currentStore.cnpj || '(Não registrado / Isento)'}</p>
+                        <span className="text-[10px] text-slate-450 uppercase block">LUC (Ponto Comercial)</span>
+                        <p className="text-xs font-mono text-slate-300 mt-0.5">{currentStore.luc || '(Não registrado / Isento)'}</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="text-[10px] text-slate-450 uppercase block">Piso Comercial</span>
-                          <p className="text-xs text-slate-200 mt-0.5">{currentStore.piso}</p>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-450 uppercase block">Categoria</span>
-                          <p className="text-xs text-slate-205 mt-0.5">{currentStore.categoria}</p>
-                        </div>
+                      <div>
+                        <span className="text-[10px] text-slate-450 uppercase block">Piso Comercial</span>
+                        <p className="text-xs text-slate-200 mt-0.5">{currentStore.piso}</p>
                       </div>
 
                       <div>
@@ -550,41 +518,27 @@ export const StoresView: React.FC<StoresViewProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">CNPJ</label>
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">LUC (Identificação da Loja)</label>
                         <input 
                           type="text" 
-                          value={editCnpj} 
-                          onChange={(e) => setEditCnpj(e.target.value)}
-                          placeholder="00.000.000/0000-00"
+                          value={editLuc} 
+                          onChange={(e) => setEditLuc(e.target.value)}
+                          placeholder="Ex: LUC L2-34, Sala 102"
                           className="w-full bg-[#0F1923] border border-[#253549] text-slate-200 p-2 rounded focus:outline-none focus:border-[#00C4A7] font-mono"
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] text-slate-400 font-semibold mb-1">Piso</label>
-                          <select 
-                            value={editPiso} 
-                            onChange={(e) => setEditPiso(e.target.value)}
-                            className="w-full bg-[#0F1923] border border-[#253549] text-slate-200 p-2 rounded focus:outline-none"
-                          >
-                            {pisos.map(p => (
-                              <option key={p} value={p}>{p}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-slate-400 font-semibold mb-1">Categoria</label>
-                          <select 
-                            value={editCategoria} 
-                            onChange={(e) => setEditCategoria(e.target.value)}
-                            className="w-full bg-[#0F1923] border border-[#253549] text-slate-200 p-2 rounded focus:outline-none"
-                          >
-                            {categorias.map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                        </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Piso</label>
+                        <select 
+                          value={editPiso} 
+                          onChange={(e) => setEditPiso(e.target.value)}
+                          className="w-full bg-[#0F1923] border border-[#253549] text-slate-200 p-2 rounded focus:outline-none focus:border-[#00C4A7]"
+                        >
+                          {pisos.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>
@@ -837,42 +791,27 @@ export const StoresView: React.FC<StoresViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">CNPJ</label>
+                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">LUC (Identificação da Loja)</label>
                 <input 
                   type="text" 
-                  value={newCnpj}
-                  onChange={(e) => setNewCnpj(e.target.value)}
-                  placeholder="Ex: 92.834.122/0001-08"
+                  value={newLuc}
+                  onChange={(e) => setNewLuc(e.target.value)}
+                  placeholder="Ex: LUC L2-34 ou Sala 102"
                   className="w-full bg-[#0F1923] border border-[#253549] p-2.5 rounded text-slate-200 focus:outline-none focus:border-[#00C4A7] font-mono"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Piso Comercial</label>
-                  <select 
-                    value={newPiso}
-                    onChange={(e) => setNewPiso(e.target.value)}
-                    className="w-full bg-[#0F1923] border border-[#253549] p-2.5 rounded text-slate-200 focus:outline-none"
-                  >
-                    {pisos.map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Setor / Categoria</label>
-                  <select 
-                    value={newCategoria}
-                    onChange={(e) => setNewCategoria(e.target.value)}
-                    className="w-full bg-[#0F1923] border border-[#253549] p-2.5 rounded text-slate-200 focus:outline-none"
-                  >
-                    {categorias.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Piso Comercial</label>
+                <select 
+                  value={newPiso}
+                  onChange={(e) => setNewPiso(e.target.value)}
+                  className="w-full bg-[#0F1923] border border-[#253549] p-2.5 rounded text-slate-200 focus:outline-none focus:border-[#00C4A7]"
+                >
+                  {pisos.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

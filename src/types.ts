@@ -1,12 +1,11 @@
 export interface Store {
   id: string;
   nome: string;
-  cnpj?: string;
+  luc?: string; // Limit Unit Code / Número da Loja
   responsavel: string;
   telefone: string;
   email: string;
   piso: string;
-  categoria: string;
   ativa: boolean;
 }
 

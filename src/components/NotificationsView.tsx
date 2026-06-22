@@ -27,7 +27,6 @@ interface NotificationsViewProps {
   stores: Store[];
   notifications: Notification[];
   pisos: string[];
-  categorias: string[];
   tiposNotificacao: string[];
   initialFilters?: { alertOnly?: boolean };
   onAddNotification: (notif: Omit<Notification, 'id' | 'historico'> & { historico?: NotificationHistory[] }) => void;
@@ -139,14 +138,14 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
         if (new Date(n.dataEnvio) > dFim) return false;
       }
 
-      // Text query search: title, description, store name, or CNPJ
+      // Text query search: title, description, store name, or LUC
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const hasTitle = n.titulo.toLowerCase().includes(query);
         const hasDesc = n.descricao.toLowerCase().includes(query);
         const hasStoreName = store?.nome.toLowerCase().includes(query) || false;
-        const hasCNPJ = store?.cnpj?.toLowerCase().includes(query) || false;
-        if (!hasTitle && !hasDesc && !hasStoreName && !hasCNPJ) return false;
+        const hasLUC = store?.luc?.toLowerCase().includes(query) || false;
+        if (!hasTitle && !hasDesc && !hasStoreName && !hasLUC) return false;
       }
 
       return true;
@@ -456,7 +455,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             </span>
             <input 
               type="text" 
-              placeholder="Buscar por loja, título, descrição ou CNPJ..."
+              placeholder="Buscar por loja, título, descrição ou LUC..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full bg-[#0F1923] border border-[#253549] text-slate-100 placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-[#00C4A7] focus:ring-1 focus:ring-[#00C4A7] text-sm"
@@ -693,7 +692,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                       <td className="p-4 font-semibold text-slate-100">
                         <div className="flex flex-col">
                           <span>{store?.nome || n.lojaId}</span>
-                          <span className="text-[10px] text-slate-500 font-mono mt-0.5">{store?.cnpj || 'S/ CNPJ'}</span>
+                          <span className="text-[10px] text-slate-550 font-mono mt-0.5">{store?.luc || 'Sem LUC'}</span>
                           {isRec && (
                             <span 
                               className="w-max mt-1 bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/30 font-bold font-sans text-[8px] px-1 rounded"

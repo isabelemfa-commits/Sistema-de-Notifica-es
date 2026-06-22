@@ -1,11 +1,10 @@
 import { Store, Notification, DatabaseState } from './types';
 
 export const DEFAULT_PISOS = [
-  "Piso Térreo",
-  "Piso L1",
-  "Piso L2",
-  "Piso L3",
-  "Praça de Alimentação"
+  "L1",
+  "L2",
+  "L3",
+  "L4"
 ];
 
 export const DEFAULT_CATEGORIAS = [
@@ -35,26 +34,26 @@ const getRelativeDateISO = (daysAgo: number): string => {
 
 export function generateMockData(): DatabaseState {
   const stores: Store[] = [
-    { id: "store-1", nome: "C&A", cnpj: "45.242.923/0001-12", responsavel: "Mariana Costa", telefone: "(11) 98877-6611", email: "gerencia.ca@shoppingsaopaulo.com.br", piso: "Piso L1", categoria: "Âncora", ativa: true },
-    { id: "store-2", nome: "McDonald's", cnpj: "12.345.678/0001-90", responsavel: "Felipe Almeida", telefone: "(11) 97766-5544", email: "mcdonalds.shopping@fastfood.com.br", piso: "Praça de Alimentação", categoria: "Alimentação", ativa: true },
-    { id: "store-3", nome: "Renner", cnpj: "92.834.122/0001-08", responsavel: "Juliana Mendes", telefone: "(11) 96655-4433", email: "renner.mall@renner.com.br", piso: "Piso L2", categoria: "Âncora", ativa: true },
-    { id: "store-4", nome: "O Boticário", cnpj: "03.923.484/0002-44", responsavel: "Carla Souza", telefone: "(11) 95544-3322", email: "oboticario.loja@boticario.com.br", piso: "Piso Térreo", categoria: "Moda", ativa: true },
-    { id: "store-5", nome: "Lojas Americanas", cnpj: "00.776.574/0112-99", responsavel: "Ricardo Santos", telefone: "(11) 94433-2211", email: "sac.americanas@americanas.com.br", piso: "Piso Térreo", categoria: "Âncora", ativa: true },
-    { id: "store-6", nome: "Zara", cnpj: "18.232.993/0001-52", responsavel: "Helena Rostova", telefone: "(11) 93322-1100", email: "zara.manager@zara.com", piso: "Piso L3", categoria: "Moda", ativa: true },
-    { id: "store-7", nome: "Cacau Show", cnpj: "05.111.222/0001-33", responsavel: "Marcelo Ramos", telefone: "(11) 92211-0099", email: "cacau.show.mall@gmail.com", piso: "Piso L1", categoria: "Alimentação", ativa: true },
-    { id: "store-8", nome: "Smart Fit", cnpj: "10.456.789/0001-88", responsavel: "Bruno Oliveira", telefone: "(11) 91100-9988", email: "smart.mall@smartfit.com.br", piso: "Piso L3", categoria: "Serviços", ativa: true },
-    { id: "store-9", nome: "Cinemark", cnpj: "02.998.776/0003-24", responsavel: "Fernanda Lima", telefone: "(11) 97755-3311", email: "cinemark.cinema@cinemark.com.ar", piso: "Piso L3", categoria: "Entretenimento", ativa: true },
-    { id: "store-10", nome: "Drogaria São Paulo", cnpj: "61.321.455/0004-11", responsavel: "Dra. Patrícia Silveira", telefone: "(11) 98833-2211", email: "dsp.shopping@drogariasaopaulo.com.br", piso: "Piso Térreo", categoria: "Serviços", ativa: true },
-    { id: "store-11", nome: "Kopenhagen", cnpj: "40.922.384/0001-66", responsavel: "Renata Abreu", telefone: "(11) 95533-8822", email: "kopenhagen.shopping@chocolates.com", piso: "Piso L2", categoria: "Alimentação", ativa: true },
-    { id: "store-12", nome: "Riachuelo", cnpj: "33.222.111/0001-31", responsavel: "Gabriela Duarte", telefone: "(11) 94422-9911", email: "riachuelo.loja@riachuelo.com.br", piso: "Piso L1", categoria: "Âncora", ativa: true },
-    { id: "store-13", nome: "Lupo", cnpj: "44.111.555/0001-88", responsavel: "Thais Neri", telefone: "(11) 98855-4422", email: "lupo.mall@lupo.com.br", piso: "Piso L1", categoria: "Moda", ativa: true },
-    { id: "store-14", nome: "Samsung Store", cnpj: "11.222.333/0003-44", responsavel: "Lucas Mello", telefone: "(11) 97744-1100", email: "samsung.loja@samsung.com.br", piso: "Piso L2", categoria: "Outro", ativa: true },
-    { id: "store-15", nome: "Spoleto", cnpj: "09.324.938/0001-22", responsavel: "Fábio Jr.", telefone: "(11) 96633-1122", email: "spoleto.shopping@fastpasta.com.br", piso: "Praça de Alimentação", categoria: "Alimentação", ativa: true },
-    { id: "store-16", nome: "Burger King", cnpj: "13.432.553/0002-11", responsavel: "Guilherme Santos", telefone: "(11) 95522-3344", email: "bk.mall@burgerking.com.br", piso: "Praça de Alimentação", categoria: "Alimentação", ativa: true },
-    { id: "store-17", nome: "Lotérica Shopping", cnpj: "22.331.122/0001-00", responsavel: "Seu Antonio", telefone: "(11) 92233-4455", email: "loterica.shopping@loterias.com.br", piso: "Piso Térreo", categoria: "Serviços", ativa: false }, // Inactive store for business rules verification
-    { id: "store-18", nome: "Vivara", cnpj: "01.222.333/0001-55", responsavel: "Vanessa Lóes", telefone: "(11) 91122-3344", email: "vivara.joias@vivara.com.br", piso: "Piso L2", categoria: "Moda", ativa: true },
-    { id: "store-19", nome: "DryClean USA", cnpj: "04.555.222/0001-77", responsavel: "Pedro Vargas", telefone: "(11) 95566-7788", email: "dryclean.mall@dryclean.com.br", piso: "Piso Térreo", categoria: "Serviços", ativa: true },
-    { id: "store-20", nome: "Chilli Beans", cnpj: "08.333.222/0001-66", responsavel: "Alexandre Herculano", telefone: "(11) 93344-5566", email: "chilli.shopping@chillibeans.com.br", piso: "Piso L1", categoria: "Moda", ativa: true }
+    { id: "store-1", nome: "C&A", luc: "LUC L1-01", responsavel: "Mariana Costa", telefone: "(11) 98877-6611", email: "gerencia.ca@shoppingsaopaulo.com.br", piso: "L1", ativa: true },
+    { id: "store-2", nome: "McDonald's", luc: "LUC AL-25", responsavel: "Felipe Almeida", telefone: "(11) 97766-5544", email: "mcdonalds.shopping@fastfood.com.br", piso: "L3", ativa: true },
+    { id: "store-3", nome: "Renner", luc: "LUC L2-05", responsavel: "Juliana Mendes", telefone: "(11) 96655-4433", email: "renner.mall@renner.com.br", piso: "L2", ativa: true },
+    { id: "store-4", nome: "O Boticário", luc: "LUC T-15", responsavel: "Carla Souza", telefone: "(11) 95544-3322", email: "oboticario.loja@boticario.com.br", piso: "L1", ativa: true },
+    { id: "store-5", nome: "Lojas Americanas", luc: "LUC T-01", responsavel: "Ricardo Santos", telefone: "(11) 94433-2211", email: "sac.americanas@americanas.com.br", piso: "L1", ativa: true },
+    { id: "store-6", nome: "Zara", luc: "LUC L3-12", responsavel: "Helena Rostova", telefone: "(11) 93322-1100", email: "zara.manager@zara.com", piso: "L3", ativa: true },
+    { id: "store-7", nome: "Cacau Show", luc: "LUC L1-33", responsavel: "Marcelo Ramos", telefone: "(11) 92211-0099", email: "cacau.show.mall@gmail.com", piso: "L1", ativa: true },
+    { id: "store-8", nome: "Smart Fit", luc: "LUC L3-02", responsavel: "Bruno Oliveira", telefone: "(11) 91100-9988", email: "smart.mall@smartfit.com.br", piso: "L3", ativa: true },
+    { id: "store-9", nome: "Cinemark", luc: "LUC L3-01", responsavel: "Fernanda Lima", telefone: "(11) 97755-3311", email: "cinemark.cinema@cinemark.com.ar", piso: "L3", ativa: true },
+    { id: "store-10", nome: "Drogaria São Paulo", luc: "LUC T-10", responsavel: "Dra. Patrícia Silveira", telefone: "(11) 98833-2211", email: "dsp.shopping@drogariasaopaulo.com.br", piso: "L1", ativa: true },
+    { id: "store-11", nome: "Kopenhagen", luc: "LUC L2-24", responsavel: "Renata Abreu", telefone: "(11) 95533-8822", email: "kopenhagen.shopping@chocolates.com", piso: "L2", ativa: true },
+    { id: "store-12", nome: "Riachuelo", luc: "LUC L1-12", responsavel: "Gabriela Duarte", telefone: "(11) 94422-9911", email: "riachuelo.loja@riachuelo.com.br", piso: "L1", ativa: true },
+    { id: "store-13", nome: "Lupo", luc: "LUC L1-44", responsavel: "Thais Neri", telefone: "(11) 98855-4422", email: "lupo.mall@lupo.com.br", piso: "L1", ativa: true },
+    { id: "store-14", nome: "Samsung Store", luc: "LUC L2-52", responsavel: "Lucas Mello", telefone: "(11) 97744-1100", email: "samsung.loja@samsung.com.br", piso: "L2", ativa: true },
+    { id: "store-15", nome: "Spoleto", luc: "LUC AL-12", responsavel: "Fábio Jr.", telefone: "(11) 96633-1122", email: "spoleto.shopping@fastpasta.com.br", piso: "L3", ativa: true },
+    { id: "store-16", nome: "Burger King", luc: "LUC AL-05", responsavel: "Guilherme Santos", telefone: "(11) 95522-3344", email: "bk.mall@burgerking.com.br", piso: "L3", ativa: true },
+    { id: "store-17", nome: "Lotérica Shopping", luc: "LUC T-18", responsavel: "Seu Antonio", telefone: "(11) 92233-4455", email: "loterica.shopping@loterias.com.br", piso: "L1", ativa: false }, // Inactive store for business rules verification
+    { id: "store-18", nome: "Vivara", luc: "LUC L2-15", responsavel: "Vanessa Lóes", telefone: "(11) 91122-3344", email: "vivara.joias@vivara.com.br", piso: "L2", ativa: true },
+    { id: "store-19", nome: "DryClean USA", luc: "LUC T-19", responsavel: "Pedro Vargas", telefone: "(11) 95566-7788", email: "dryclean.mall@dryclean.com.br", piso: "L1", ativa: true },
+    { id: "store-20", nome: "Chilli Beans", luc: "LUC L1-50", responsavel: "Alexandre Herculano", telefone: "(11) 93344-5566", email: "chilli.shopping@chillibeans.com.br", piso: "L1", ativa: true }
   ];
 
   const notifications: Notification[] = [];
@@ -73,7 +72,7 @@ export function generateMockData(): DatabaseState {
     { daysAgo: 15, status: 'Pendente', desc: 'Descarte incorreto de óleo vegetal na caixa de gordura setorial' },
     { daysAgo: 110, status: 'Resolvida', desc: 'Atraso na entrega dos certificados de desratização e controle de vetores', dtResId: 102 },
     { daysAgo: 220, status: 'Resolvida', desc: 'Barulhos anormais no exaustor secundário fora da curva de ruído comercial', dtResId: 215 },
-    { daysAgo: 310, status: 'Resolvida', desc: 'Emissões de gordura excessivas na área externa da Praça de Alimentação', dtResId: 300 }
+    { daysAgo: 310, status: 'Resolvida', desc: 'Emissões de gordura excessivas na área externa de alimentação no L3', dtResId: 300 }
   ] as const;
 
   mcDonaldsExigencias.forEach(m => {
@@ -317,6 +316,48 @@ export function loadDatabase(): DatabaseState {
       const parsed = JSON.parse(stored);
       // Validate schema minimally
       if (parsed && Array.isArray(parsed.stores) && Array.isArray(parsed.notifications)) {
+        // Automatically migrate any 'cnpj' fields to 'luc' silently to support existing data
+        let migrated = false;
+
+        if (!parsed.pisos || parsed.pisos.some((p: string) => !DEFAULT_PISOS.includes(p)) || parsed.pisos.length !== DEFAULT_PISOS.length) {
+          parsed.pisos = DEFAULT_PISOS;
+          migrated = true;
+        }
+
+        parsed.stores = parsed.stores.map((s: any) => {
+          if ('cnpj' in s) {
+            const { cnpj, ...rest } = s;
+            s = { ...rest, luc: cnpj || '' };
+            migrated = true;
+          }
+
+          const oldPiso = s.piso || '';
+          let newPiso = oldPiso;
+          if (oldPiso === "Piso Térreo" || oldPiso === "Térreo") {
+            newPiso = "L1";
+          } else if (oldPiso === "Piso L1") {
+            newPiso = "L1";
+          } else if (oldPiso === "Piso L2") {
+            newPiso = "L2";
+          } else if (oldPiso === "Piso L3") {
+            newPiso = "L3";
+          } else if (oldPiso === "Piso L4") {
+            newPiso = "L4";
+          } else if (oldPiso === "Praça de Alimentação") {
+            newPiso = "L3";
+          } else if (!DEFAULT_PISOS.includes(oldPiso)) {
+            newPiso = "L1";
+          }
+
+          if (newPiso !== oldPiso) {
+            s.piso = newPiso;
+            migrated = true;
+          }
+          return s;
+        });
+        if (migrated) {
+          saveDatabase(parsed);
+        }
         return parsed;
       }
     }

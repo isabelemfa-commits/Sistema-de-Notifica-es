@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { DatabaseState } from '../types';
 import { generateMockData } from '../mockData';
+import { read, utils } from 'xlsx';
 import { 
   Settings, 
   Layers, 
@@ -16,7 +17,8 @@ import {
   XCircle,
   FileDown,
   Info,
-  Check
+  Check,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -32,7 +34,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   // Input fields for adding items
   const [newPisoInput, setNewPisoInput] = useState('');
-  const [newCatInput, setNewCatInput] = useState('');
   const [newTipoInput, setNewTipoInput] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +46,88 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
   const [isImporterOpen, setIsImporterOpen] = useState(false);
   const [showBulkOverwriteConfirm, setShowBulkOverwriteConfirm] = useState(false);
+  const [excelFileName, setExcelFileName] = useState<string | null>(null);
+  const [importTab, setImportTab] = useState<'excel' | 'text'>('excel');
+  const excelInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExcelFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    setExcelFileName(file.name);
+    
+    // Clear manual pasted text to avoid confusion
+    setBulkText('');
+    
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = evt.target?.result;
+        if (!data) return;
+        const workbook = read(new Uint8Array(data as ArrayBuffer), { type: 'array' });
+        
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        const jsonData = utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        
+        if (jsonData.length === 0) {
+          onTriggerToast('error', 'Arquivo Vazio', 'O arquivo Excel importado não possui linhas de dados.');
+          return;
+        }
+
+        const parsedStores: any[] = [];
+        jsonData.forEach((row: any, index: number) => {
+          if (!row || row.length === 0) return;
+          
+          const firstVal = String(row[0] || '').trim().toLowerCase();
+          // Skip header row if matches keywords
+          if (index === 0 && (
+            firstVal === 'nome' || 
+            firstVal === 'empresa' || 
+            firstVal === 'loja' || 
+            firstVal === 'nome da loja' ||
+            firstVal.includes('luc') ||
+            firstVal.includes('cnpj') ||
+            firstVal.includes('piso') ||
+            firstVal.includes('responsável')
+          )) {
+            return;
+          }
+          
+          const nome = row[0] ? String(row[0]).trim() : '';
+          const luc = row[1] ? String(row[1]).trim() : '';
+          const piso = row[2] ? String(row[2]).trim() : dbState.pisos[0] || 'L1';
+          const responsavel = row[3] ? String(row[3]).trim() : 'Gerente Geral';
+          const telefone = row[4] ? String(row[4]).trim() : '';
+          const email = row[5] ? String(row[5]).trim() : '';
+          
+          if (nome) {
+            parsedStores.push({
+              nome,
+              luc,
+              piso,
+              responsavel,
+              telefone,
+              email,
+              lineNum: index + 1
+            });
+          }
+        });
+        
+        setBulkPreview(parsedStores);
+        if (parsedStores.length > 0) {
+          onTriggerToast('success', 'Planilha Processada', `Identificamos ${parsedStores.length} lojas prontas para importação.`);
+        } else {
+          onTriggerToast('warning', 'Nenhuma Loja Identificada', 'Verifique se a primeira coluna da planilha possui os nomes das lojas.');
+        }
+      } catch (err) {
+        console.error(err);
+        onTriggerToast('error', 'Falha na Leitura', 'Erro ao processar as colunas do Excel. Verifique a formatação.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   // Parser for raw text from spreadsheets or CSV
   const handleParseBulkText = (text: string, sepType: string) => {
@@ -82,6 +165,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         firstPartLower === 'nome' || 
         firstPartLower === 'empresa' || 
         firstPartLower === 'loja' || 
+        firstPartLower.includes('luc') ||
         firstPartLower.includes('cnpj') ||
         firstPartLower.includes('piso') ||
         firstPartLower.includes('responsável') ||
@@ -91,19 +175,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
       
       const nome = parts[0] || '';
-      const cnpj = parts[1] || '';
-      const piso = parts[2] || dbState.pisos[0] || 'Piso Térreo';
-      const categoria = parts[3] || dbState.categorias[0] || 'Moda';
-      const responsavel = parts[4] || 'Gerente Geral';
-      const telefone = parts[5] || '';
-      const email = parts[6] || '';
+      const luc = parts[1] || '';
+      const piso = parts[2] || dbState.pisos[0] || 'L1';
+      const responsavel = parts[3] || 'Gerente Geral';
+      const telefone = parts[4] || '';
+      const email = parts[5] || '';
       
       if (nome) {
         parsedStores.push({
           nome,
-          cnpj,
+          luc,
           piso,
-          categoria,
           responsavel,
           telefone,
           email,
@@ -127,24 +209,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
 
     let nextPisos = [...dbState.pisos];
-    let nextCategorias = [...dbState.categorias];
 
     const finalStores: any[] = bulkPreview.map((item, idx) => {
       if (autoCreateParams) {
         if (item.piso && !nextPisos.includes(item.piso)) {
           nextPisos.push(item.piso);
         }
-        if (item.categoria && !nextCategorias.includes(item.categoria)) {
-          nextCategorias.push(item.categoria);
-        }
       }
 
       return {
         id: `store-bulk-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
         nome: item.nome,
-        cnpj: item.cnpj || '',
+        luc: item.luc || '',
         piso: item.piso,
-        categoria: item.categoria,
         responsavel: item.responsavel,
         telefone: item.telefone || '',
         email: item.email || '',
@@ -168,12 +245,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ...dbState,
       stores: updatedStores,
       notifications: updatedNotifs,
-      pisos: nextPisos,
-      categorias: nextCategorias
+      pisos: nextPisos
     });
 
     setBulkText('');
     setBulkPreview([]);
+    setExcelFileName(null);
     setIsImporterOpen(false);
     setShowBulkOverwriteConfirm(false);
   };
@@ -214,43 +291,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       pisos: dbState.pisos.filter(p => p !== piso)
     });
     onTriggerToast('warning', 'Piso Removido', `O pavimento "${piso}" foi excluído das configurações.`);
-  };
-
-  // --- CATEGORIES MANAGEMENT ---
-  const handleAddCat = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = newCatInput.trim();
-    if (!clean) return;
-    if (dbState.categorias.includes(clean)) {
-      onTriggerToast('warning', 'Setor Duplicado', 'Esta categoria já existe no sistema.');
-      return;
-    }
-
-    onUpdateFullDatabase({
-      ...dbState,
-      categorias: [...dbState.categorias, clean]
-    });
-    setNewCatInput('');
-    onTriggerToast('success', 'Categoria Adicionada', `O setor de "${clean}" já está operacional.`);
-  };
-
-  const handleRemoveCat = (cat: string) => {
-    const hasStores = dbState.stores.some(s => s.categoria === cat);
-    if (hasStores) {
-      onTriggerToast('error', 'Ação Impedida', `A categoria "${cat}" possui empresas comerciais ativas.`);
-      return;
-    }
-
-    if (dbState.categorias.length <= 1) {
-      onTriggerToast('error', 'Não permitido', 'A base precisa conter ao menos uma categoria genérica.');
-      return;
-    }
-
-    onUpdateFullDatabase({
-      ...dbState,
-      categorias: dbState.categorias.filter(c => c !== cat)
-    });
-    onTriggerToast('warning', 'Categoria Excluída', `O setor "${cat}" foi retirado com êxito.`);
   };
 
   // --- NOTIFICATION TYPES MANAGEMENT ---
@@ -365,8 +405,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Grid: 3 lists management */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Grid: 2 lists management */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* FLOOR CONTROLS */}
         <div className="bg-[#1A2636] border border-[#253549] rounded-xl p-5 shadow-lg space-y-4 flex flex-col justify-between">
@@ -397,49 +437,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               type="text" 
               value={newPisoInput}
               onChange={(e) => setNewPisoInput(e.target.value)}
-              placeholder="Ex: Piso L4"
-              required
-              className="flex-1 bg-[#0F1923] border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-[#00C4A7]"
-            />
-            <button 
-              type="submit"
-              className="bg-[#00C4A7] hover:bg-[#00B096] text-slate-900 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Inserir
-            </button>
-          </form>
-        </div>
-
-        {/* CATEGORY CONTROLS */}
-        <div className="bg-[#1A2636] border border-[#253549] rounded-xl p-5 shadow-lg space-y-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-widest flex items-center gap-2 border-b border-[#253549] pb-3 mb-3">
-              <Tags className="w-4 h-4 text-[#00C4A7]" />
-              Categorias de Lojas ({dbState.categorias.length})
-            </h3>
-
-            <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-1">
-              {dbState.categorias.map(c => (
-                <div key={c} className="flex justify-between items-center p-2 rounded bg-[#0F1923] border border-slate-850 text-xs">
-                  <span className="text-slate-350">{c}</span>
-                  <button 
-                    onClick={() => handleRemoveCat(c)}
-                    className="p-1 text-slate-450 hover:text-[#EF4444] rounded hover:bg-slate-800 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleAddCat} className="pt-3 border-t border-[#253549] flex gap-2">
-            <input 
-              type="text" 
-              value={newCatInput}
-              onChange={(e) => setNewCatInput(e.target.value)}
-              placeholder="Ex: Joalheria"
+              placeholder="Ex: L4"
               required
               className="flex-1 bg-[#0F1923] border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-[#00C4A7]"
             />
@@ -503,12 +501,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div>
             <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
               <span className="p-1 rounded bg-[#00C4A7]/10 text-[#00C4A7]">
-                <Plus className="w-5 h-5" />
+                <FileSpreadsheet className="w-5 h-5" />
               </span>
-              Importação Rápida de Lojas (Lote / Excel / CSV)
+              Importador Automático de Lojas
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Copie linhas do Excel / Google Sheets ou digite uma lista separada por ponto e vírgula para cadastrar dezenas de lojas instantaneamente.
+              Cadastre dezenas de estabelecimentos de uma só vez importando arquivos do Excel ou copiando e colando suas tabelas.
             </p>
           </div>
           
@@ -516,65 +514,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             onClick={() => setIsImporterOpen(!isImporterOpen)}
             className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-705 px-4 py-2 rounded-lg text-xs font-bold transition-all"
           >
-            {isImporterOpen ? "Esconder Formulário" : "Abrir Importador"}
+            {isImporterOpen ? "Esconder Importador" : "Iniciar Importador"}
           </button>
         </div>
 
         {isImporterOpen && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-3 duration-250">
-            {/* Format Help Instructions */}
-            <div className="bg-[#0F1923] p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
-              <span className="font-bold text-[#00C4A7] flex items-center gap-1">
-                <Info className="w-4 h-4" />
-                Como formatar os dados de cada linha:
-              </span>
-              <p className="leading-relaxed">
-                Insira as colunas na ordem abaixo, separadas por <strong className="text-amber-500">ponto e vírgula (;) ou tabulações</strong>:
-              </p>
-              <div className="bg-slate-900 border border-slate-800 text-xs font-mono p-2.5 rounded text-slate-400 overflow-x-auto select-text">
-                Nome_da_Loja; CNPJ; Piso; Categoria; Nome_do_Gerente; Telefone; Email
-              </div>
-              <p className="text-[11px] text-slate-450">
-                💡 <span className="font-semibold text-slate-300">Exemplo real pronto para copiar:</span>
-              </p>
-              <div className="bg-slate-900 border border-slate-800 text-[11px] font-mono p-2.5 rounded text-[#00C4A7] overflow-x-auto select-all">
-                Livraria Leitura; 08.434.922/0001-44; Piso L2; Entretenimento; Marcio Borges; (11) 98888-2222; gerencia.leitura@email.com<br />
-                Kopenhagen; 40.922.384/0001-66; Piso L2; Alimentação; Renata Abreu; (11) 95533-8822; kopenhagen.shopping@chocolates.com
-              </div>
+          <div className="space-y-5 animate-in fade-in slide-in-from-top-3 duration-250">
+            {/* Tab selector */}
+            <div className="flex border-b border-[#253549] p-0.5 bg-[#0F1923] rounded-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setImportTab('excel');
+                  setBulkPreview([]);
+                  setExcelFileName(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  importTab === 'excel'
+                    ? 'bg-[#1A2636] text-[#00C4A7] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Planilha Excel (.xlsx, .xls, .csv)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportTab('text');
+                  setBulkPreview([]);
+                  setExcelFileName(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  importTab === 'text'
+                    ? 'bg-[#1A2636] text-[#00C4A7] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Plus className="w-4 h-4" />
+                Copiar e Colar Texto
+              </button>
             </div>
 
-            {/* Config options */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* General parameters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#0F1923]/40 p-4 rounded-xl border border-[#253549]/30">
               <div>
-                <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Delimitador de Coluna</label>
-                <select 
-                  value={bulkSeparator}
-                  onChange={(e) => {
-                    setBulkSeparator(e.target.value);
-                    handleParseBulkText(bulkText, e.target.value);
-                  }}
-                  className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-[#00C4A7]"
-                >
-                  <option value="auto">Detectar Automaticamente</option>
-                  <option value=";">Ponto e vírgula (;)</option>
-                  <option value=",">Vírgula (,)</option>
-                  <option value="&#9;">Tabulação (Excel / Sheets)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Modo de Importação</label>
+                <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Modo de Alimentação</label>
                 <select 
                   value={bulkImportMode}
                   onChange={(e) => setBulkImportMode(e.target.value)}
                   className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-205 rounded-lg p-2.5 focus:outline-none focus:border-[#00C4A7]"
                 >
-                  <option value="append">Adicionar às existentes (Preserva histórico)</option>
-                  <option value="overwrite">Substituir base completamente (Zera lojas e notificações)</option>
+                  <option value="append">Adicionar às lojas existentes (Preservar dados existentes)</option>
+                  <option value="overwrite">Substituir base completamente (Zerar histórico e lojas atuais)</option>
                 </select>
               </div>
 
-              <div className="flex items-center gap-2 pt-5">
+              <div className="flex items-center gap-2.5 pt-5 sm:pt-4 md:pt-6">
                 <input 
                   type="checkbox" 
                   id="chk_auto_create"
@@ -582,26 +578,144 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onChange={(e) => setAutoCreateParams(e.target.checked)}
                   className="w-4.5 h-4.5 rounded text-[#00C4A7] bg-[#0F1923] accent-[#00C4A7]"
                 />
-                <label htmlFor="chk_auto_create" className="text-xs font-semibold text-slate-300 select-none">
-                  Criar pisos/categorias faltantes
+                <label htmlFor="chk_auto_create" className="text-xs font-semibold text-slate-300 select-none cursor-pointer">
+                  Criar automaticamente Pisos ou Categorias inexistentes do arquivo
                 </label>
               </div>
             </div>
 
-            {/* Source Textarea */}
-            <div className="space-y-1">
-              <label className="block text-[10px] text-slate-400 font-semibold uppercase">Dados para Importação (Lojas)</label>
-              <textarea 
-                value={bulkText}
-                onChange={(e) => {
-                  setBulkText(e.target.value);
-                  handleParseBulkText(e.target.value, bulkSeparator);
-                }}
-                placeholder="Cole as colunas de dados aqui... Uma loja por linha."
-                rows={6}
-                className="w-full bg-[#0F1923] border border-[#253549] text-slate-100 placeholder-slate-650 rounded-xl p-3 focus:outline-none focus:border-[#00C4A7] font-mono text-xs leading-relaxed"
-              />
-            </div>
+            {/* TAB CONTENT: EXCEL FILE UPLOAD */}
+            {importTab === 'excel' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <span className="text-xs text-slate-300 font-semibold">
+                    Selecione ou arraste sua planilha estruturada
+                  </span>
+                  
+                  {/* Template download link */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const csvContent = "Nome da Loja;LUC;Piso;Nome do Gerente;Telefone;Email\n" +
+                        "Livraria Leitura;LUC L2-19;L2;Marcio Borges;(11) 98888-2222;gerencia.leitura@email.com\n" +
+                        "Kopenhagen;LUC L1-03;L1;Renata Abreu;(11) 95533-8822;kopenhagen.shopping@chocolates.com";
+                      const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.setAttribute("download", "modelo_importacao_lojas.csv");
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      onTriggerToast('info', 'Modelo Baixado', 'Use este modelo no Excel ou Sheets para preencher e importar.');
+                    }}
+                    className="text-xs text-[#00C4A7] hover:text-[#00B096] font-bold flex items-center gap-1 hover:underline cursor-pointer py-1"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Baixar Modelo Excel (.csv)
+                  </button>
+                </div>
+
+                {/* Drag zone box */}
+                <div 
+                  onClick={() => excelInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 bg-[#0F1923]/45 ${
+                    excelFileName 
+                      ? 'border-[#00C4A7] bg-[#00C4A7]/5' 
+                      : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/20'
+                  }`}
+                >
+                  <input 
+                    type="file"
+                    ref={excelInputRef}
+                    onChange={handleExcelFileUpload}
+                    accept=".xlsx, .xls, .csv"
+                    className="hidden"
+                  />
+                  
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`p-4 rounded-full ${excelFileName ? 'bg-[#00C4A7]/10 text-[#00C4A7]' : 'bg-slate-800 text-slate-400'}`}>
+                      <Upload className="w-6 h-6 animate-pulse" />
+                    </div>
+                    
+                    {excelFileName ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-slate-100">{excelFileName}</p>
+                        <p className="text-[10px] text-[#00C4A7] font-semibold">Clique para substituir o arquivo carregado</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-slate-250">
+                          Clique ou arraste um arquivo <strong className="text-[#00C4A7]">Excel (.xlsx, .xls)</strong> ou <strong className="text-[#00C4A7]">CSV</strong>
+                        </p>
+                        <p className="text-[10px] text-slate-450 leading-relaxed">
+                          A planilha deve conter as colunas: Nome, LUC, Piso, Responsável, Telefone, Email
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: COPY & PASTE TEXT */}
+            {importTab === 'text' && (
+              <div className="space-y-3">
+                {/* Format Help Instructions */}
+                <div className="bg-[#0F1923] p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+                  <span className="font-bold text-[#00C4A7] flex items-center gap-1">
+                    <Info className="w-4 h-4" />
+                    Como formatar as linhas copiadas:
+                  </span>
+                  <p className="leading-relaxed">
+                    Copie as linhas da sua tabela e separe as colunas por <strong className="text-amber-500">ponto e vírgula (;) ou tabulações</strong>:
+                  </p>
+                  <div className="bg-slate-900 border border-slate-850 text-xs font-mono p-2.5 rounded text-slate-400 overflow-x-auto select-text">
+                    Nome_da_Loja; LUC; Piso; Nome_do_Gerente; Telefone; Email
+                  </div>
+                  <p className="text-[11px] text-slate-450">
+                    💡 <span className="font-semibold text-slate-300">Exemplo real pronto:</span>
+                  </p>
+                  <div className="bg-slate-900 border border-slate-850 text-[11px] font-mono p-2.5 rounded text-[#00C4A7] overflow-x-auto select-all">
+                    Livraria Leitura; LUC L2-19; L2; Marcio Borges; (11) 98888-2222; gerencia.leitura@email.com<br />
+                    Kopenhagen; LUC L1-03; L1; Renata Abreu; (11) 95533-8822; kopenhagen.shopping@chocolates.com
+                  </div>
+                </div>
+
+                {/* Delimiter setup */}
+                <div className="max-w-[280px]">
+                  <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Delimitador de Texto</label>
+                  <select 
+                    value={bulkSeparator}
+                    onChange={(e) => {
+                      setBulkSeparator(e.target.value);
+                      handleParseBulkText(bulkText, e.target.value);
+                    }}
+                    className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-[#00C4A7]"
+                  >
+                    <option value="auto">Detectar Automaticamente</option>
+                    <option value=";">Ponto e vírgula (;)</option>
+                    <option value=",">Vírgula (,)</option>
+                    <option value="&#9;">Tabulação (Excel / Sheets)</option>
+                  </select>
+                </div>
+
+                {/* Source Textarea */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] text-slate-400 font-semibold uppercase">Área de Colagem (Linhas copiadas)</label>
+                  <textarea 
+                    value={bulkText}
+                    onChange={(e) => {
+                      setBulkText(e.target.value);
+                      handleParseBulkText(e.target.value, bulkSeparator);
+                    }}
+                    placeholder="Cole as linhas selecionadas aqui... Uma loja por linha."
+                    rows={6}
+                    className="w-full bg-[#0F1923] border border-[#253549] text-slate-100 placeholder-slate-650 rounded-xl p-3 focus:outline-none focus:border-[#00C4A7] font-mono text-xs leading-relaxed"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Table Dynamic Preview */}
             {bulkPreview.length > 0 && (
@@ -619,9 +733,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <thead className="bg-[#151F2D] text-[10px] uppercase font-bold text-slate-400 sticky top-0 border-b border-[#253549]">
                       <tr>
                         <th className="p-2.5">Nome</th>
-                        <th className="p-2.5">CNPJ</th>
+                        <th className="p-2.5">LUC</th>
                         <th className="p-2.5">Piso</th>
-                        <th className="p-2.5">Categoria</th>
                         <th className="p-2.5">Responsável</th>
                         <th className="p-2.5">Telefone</th>
                       </tr>
@@ -630,9 +743,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       {bulkPreview.map((pStore, i) => (
                         <tr key={i} className="hover:bg-[#1A2636]">
                           <td className="p-2.5 font-bold text-slate-100">{pStore.nome}</td>
-                          <td className="p-2.5 font-mono text-slate-400">{pStore.cnpj || "-"}</td>
+                          <td className="p-2.5 font-mono text-slate-400">{pStore.luc || "-"}</td>
                           <td className="p-2.5 text-slate-300">{pStore.piso}</td>
-                          <td className="p-2.5 text-slate-300">{pStore.categoria}</td>
                           <td className="p-2.5 text-slate-205">{pStore.responsavel}</td>
                           <td className="p-2.5 font-mono text-slate-400">{pStore.telefone || "-"}</td>
                         </tr>
@@ -650,14 +762,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={() => {
                   setBulkText('');
                   setBulkPreview([]);
+                  setExcelFileName(null);
                 }}
-                className="bg-slate-800 hover:bg-slate-750 text-slate-300 px-4 py-2 rounded text-xs font-semibold"
+                className="bg-slate-800 hover:bg-slate-755 text-slate-300 px-4 py-2 rounded text-xs font-semibold cursor-pointer"
               >
                 Limpar Campos
               </button>
               <button 
                 type="button" 
-                onClick={handleExecuteBulkImport}
+                onClick={() => handleExecuteBulkImport(false)}
                 disabled={bulkPreview.length === 0}
                 className={`px-5 py-2 rounded text-xs font-bold shadow transition-all ${
                   bulkPreview.length > 0 
