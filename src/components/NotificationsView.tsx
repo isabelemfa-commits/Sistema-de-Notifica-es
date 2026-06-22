@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Store, Notification, NotificationHistory } from '../types';
 import { 
   getNotificationDisplayStatus, 
@@ -28,7 +28,7 @@ interface NotificationsViewProps {
   notifications: Notification[];
   pisos: string[];
   tiposNotificacao: string[];
-  initialFilters?: { alertOnly?: boolean };
+  initialFilters?: any;
   onAddNotification: (notif: Omit<Notification, 'id' | 'historico'> & { historico?: NotificationHistory[] }) => void;
   onUpdateNotification: (notif: Notification) => void;
   onDeleteNotification: (id: string) => void;
@@ -96,6 +96,37 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [formEvidencia, setFormEvidencia] = useState('');
   const [formObservacoes, setFormObservacoes] = useState('');
   const [formCriadoPor, setFormCriadoPor] = useState('Mariana Costa (Coordenação Lojistas)');
+  const [formFase, setFormFase] = useState<'1ª Notificação' | '2ª Notificação' | '3ª Notificação' | 'Geral'>('Geral');
+
+  // Automatically enforce 7-day deadline for phase notifications (1ª, 2ª, 3ª)
+  useEffect(() => {
+    if (formFase === '1ª Notificação' || formFase === '2ª Notificação' || formFase === '3ª Notificação') {
+      const d = new Date(formDataEnvio);
+      d.setDate(d.getDate() + 7);
+      setFormDataVencimento(d.toISOString().split('T')[0]);
+    }
+  }, [formFase, formDataEnvio]);
+
+  // Unpack prefill directives from other views (e.g., Phase Tracker)
+  useEffect(() => {
+    if (initialFilters?.prefill) {
+      const { lojaId, fase } = initialFilters.prefill;
+      setFormLojaId(lojaId);
+      setFormFase(fase);
+      setFormTipo("Exigência Operacional");
+      setFormTitulo(`${fase} - Infração Operacional`);
+      setFormDescricao(`Processo de acompanhamento regulamentar - ${fase} formalizada para regularização das desconformidades identificadas em vistoria no prazo de 7 dias.`);
+      setFormPrioridade(fase === '3ª Notificação' ? 'Crítica' : fase === '2ª Notificação' ? 'Alta' : 'Média');
+      
+      const today = new Date();
+      setFormDataEnvio(today.toISOString().split('T')[0]);
+      const targetVenc = new Date();
+      targetVenc.setDate(targetVenc.getDate() + 7);
+      setFormDataVencimento(targetVenc.toISOString().split('T')[0]);
+      
+      setIsCreateOpen(true);
+    }
+  }, [initialFilters]);
 
   // Filter active list
   const filteredNotifications = useMemo(() => {
@@ -355,6 +386,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       dataResolucao: formStatus === 'Resolvida' ? new Date().toISOString() : null,
       status: formStatus,
       prioridade: formPrioridade,
+      fase: formFase,
       evidenciaEntrega: formEvidencia || 'Notificação no Sistema',
       observacoes: formObservacoes,
       criadoPor: formCriadoPor,
@@ -368,6 +400,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     setFormDescricao('');
     setFormEvidencia('');
     setFormObservacoes('');
+    setFormFase('Geral');
     onTriggerToast('success', 'Notificação Registrada', 'Novo comunicado ativo criado no sistema.');
   };
 
@@ -377,6 +410,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     setFormLojaId(n.lojaId);
     setFormTipo(n.tipo);
     setFormTitulo(n.titulo);
+    setFormFase(n.fase || 'Geral');
     setFormDescricao(n.descricao);
     setFormDataEnvio(new Date(n.dataEnvio).toISOString().split('T')[0]);
     setFormDataVencimento(new Date(n.dataVencimento).toISOString().split('T')[0]);
@@ -420,6 +454,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       dataResolucao: updatedResolucao,
       status: formStatus,
       prioridade: formPrioridade,
+      fase: formFase,
       evidenciaEntrega: formEvidencia,
       observacoes: formObservacoes,
       criadoPor: formCriadoPor,
@@ -705,9 +740,16 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                       </td>
                       <td className="p-4 text-slate-300 whitespace-nowrap">{store?.piso || 'N/A'}</td>
                       <td className="p-4 whitespace-nowrap">
-                        <span className="bg-slate-800 text-[#00C4A7] border border-slate-700 font-medium px-2 py-0.5 rounded text-[10px]">
-                          {n.tipo}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="bg-slate-800 text-[#00C4A7] border border-slate-700 font-medium px-2 py-0.5 rounded text-[10px]">
+                            {n.tipo}
+                          </span>
+                          {n.fase && n.fase !== 'Geral' && (
+                            <span className="bg-[#00C4A7]/10 text-[#00C4A7] border border-[#00C4A7]/20 font-bold px-1.5 py-0.3 rounded text-[9px] uppercase select-none">
+                              {n.fase}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 max-w-xs">
                         <div className="min-w-[120px]">
@@ -1032,7 +1074,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             </div>
 
             <form onSubmit={submitCreate} className="p-5 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[10px] text-slate-450 uppercase font-bold mb-1">Loja Alvo *</label>
                   <select 
@@ -1041,7 +1083,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     required
                     className="w-full bg-[#0F1923] border border-[#253549] text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
                   >
-                    <option value="">-- Selecione a Loja --</option>
+                    <option value="">-- Selecione --</option>
                     {stores.filter(s => s.ativa).map(s => (
                       <option key={s.id} value={s.id}>{s.nome} ({s.piso})</option>
                     ))}
@@ -1058,6 +1100,20 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     {tiposNotificacao.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Acompanhamento / Fase *</label>
+                  <select 
+                    value={formFase}
+                    onChange={(e) => setFormFase(e.target.value as any)}
+                    className="w-full bg-[#0F1923] border border-[#00C4A7]/30 text-xs text-[#00C4A7] font-semibold rounded-lg p-2 focus:outline-none"
+                  >
+                    <option value="Geral">Comunicado Geral</option>
+                    <option value="1ª Notificação">1ª Notificação (Prazo 7d)</option>
+                    <option value="2ª Notificação">2ª Notificação (Prazo 7d)</option>
+                    <option value="3ª Notificação">3ª Notificação (Prazo 7d)</option>
                   </select>
                 </div>
               </div>
@@ -1197,7 +1253,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             </div>
 
             <form onSubmit={submitEdit} className="p-5 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Loja Alvo</label>
                   <select 
@@ -1220,6 +1276,19 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     {tiposNotificacao.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#00C4A7] uppercase font-bold mb-1">Acompanhamento / Fase</label>
+                  <select 
+                    value={formFase}
+                    onChange={(e) => setFormFase(e.target.value as any)}
+                    className="w-full bg-[#0F1923] border border-[#00C4A7]/30 text-[#00C4A7] text-xs font-semibold rounded-lg p-2 focus:outline-none"
+                  >
+                    <option value="Geral">Comunicado Geral</option>
+                    <option value="1ª Notificação">1ª Notificação (Prazo 7d)</option>
+                    <option value="2ª Notificação">2ª Notificação (Prazo 7d)</option>
+                    <option value="3ª Notificação">3ª Notificação (Prazo 7d)</option>
                   </select>
                 </div>
               </div>

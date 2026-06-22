@@ -96,7 +96,7 @@ export default function App() {
     const id = `notif-${Date.now()}`;
     const defaultHistory: NotificationHistory = {
       data: new Date().toISOString(),
-      descricao: "Notificação criada no sistema MallNotify",
+      descricao: "Notificação criada no Sistema de Notificações de loja",
       autor: newNotif.criadoPor || "Sistema"
     };
 
@@ -207,10 +207,10 @@ export default function App() {
             <div className="flex items-center gap-2">
               <Building2 className="w-5 h-5 text-[#00C4A7]" />
               <h1 className="text-sm font-bold tracking-tight text-slate-100 hidden sm:block">
-                Administração Geral de Notificações shopping
+                Sistema de Notificações de loja
               </h1>
               <h1 className="text-sm font-bold tracking-tight text-slate-100 sm:hidden">
-                MallNotify
+                Sistema de Notificações de loja
               </h1>
             </div>
           </div>
@@ -269,6 +269,9 @@ export default function App() {
               stores={dbState.stores}
               notifications={dbState.notifications}
               pisos={dbState.pisos}
+              initialStoreProfileId={initialStoreProfileId}
+              onClearInitialStoreProfileId={() => setInitialStoreProfileId(null)}
+              onNavigateToTab={handleNavigateToNotifications}
               onAddStore={handleAddStore}
               onUpdateStore={handleUpdateStore}
               onDeleteStore={handleDeleteStore}

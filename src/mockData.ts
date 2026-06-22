@@ -80,17 +80,21 @@ export function generateMockData(): DatabaseState {
     // Vencimento of 10 days
     const dataVenc = getRelativeDateISO(m.daysAgo - 10);
     const resolvedDate = m.status === 'Resolvida' ? getRelativeDateISO(m.dtResId) : null;
+    const fase = m.daysAgo === 310 ? '1ª Notificação' :
+                 m.daysAgo === 220 ? '2ª Notificação' :
+                 m.daysAgo === 110 ? '3ª Notificação' : 'Geral';
     
     addNotification({
       lojaId: "store-2",
       tipo: "Exigência Operacional",
-      titulo: "Exigência Operacional - Controle Higiênico",
+      titulo: `${fase} - Controle Higiênico`,
       descricao: m.desc,
       dataEnvio,
       dataVencimento: dataVenc,
       dataResolucao: resolvedDate,
       status: m.status as any,
       prioridade: "Alta",
+      fase,
       evidenciaEntrega: "WhatsApp Oficial " + m.daysAgo,
       observacoes: "Monitoramento de equipe operacional regular.",
       criadoPor: "Renato Silveira (Fiscal Executivo)",
@@ -113,17 +117,21 @@ export function generateMockData(): DatabaseState {
     const dataEnvio = getRelativeDateISO(z.daysAgo);
     const dataVenc = getRelativeDateISO(z.daysAgo - 5);
     const resolvedDate = z.status === 'Resolvida' ? getRelativeDateISO(z.dtResId) : null;
+    const fase = z.daysAgo === 280 ? '1ª Notificação' :
+                 z.daysAgo === 160 ? '2ª Notificação' :
+                 z.daysAgo === 45 ? '3ª Notificação' : 'Geral';
 
     addNotification({
       lojaId: "store-6",
       tipo: "Advertência",
-      titulo: "Advertência por Infração Regimental",
+      titulo: `${fase} - Infração Regimental`,
       descricao: z.desc,
       dataEnvio,
       dataVencimento: dataVenc,
       dataResolucao: resolvedDate,
       status: z.status as any,
       prioridade: "Média",
+      fase,
       evidenciaEntrega: "E-mail com Confirmação de Leitura",
       observacoes: "Equipe de segurança acionada para registro técnico.",
       criadoPor: "Maurício Neves (Supervisor de Operações)",

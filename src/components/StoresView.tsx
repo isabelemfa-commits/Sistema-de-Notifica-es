@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Store, Notification, NotificationHistory } from '../types';
 import { 
   getNotificationDisplayStatus, 
@@ -40,6 +40,9 @@ interface StoresViewProps {
   stores: Store[];
   notifications: Notification[];
   pisos: string[];
+  initialStoreProfileId?: string | null;
+  onClearInitialStoreProfileId?: () => void;
+  onNavigateToTab?: (tabName: string, filters?: any) => void;
   onAddStore: (store: Omit<Store, 'id'>) => void;
   onUpdateStore: (store: Store) => void;
   onDeleteStore: (storeId: string) => void;
@@ -47,10 +50,43 @@ interface StoresViewProps {
   onTriggerToast: (type: 'success' | 'error' | 'warning' | 'info', title: string, msg: string) => void;
 }
 
+const getPhasesInfo = (storeId: string, storeNotifs: Notification[]) => {
+  const phases: { [key in '1ª Notificação' | '2ª Notificação' | '3ª Notificação']: Notification | undefined } = {
+    '1ª Notificação': undefined,
+    '2ª Notificação': undefined,
+    '3ª Notificação': undefined,
+  };
+
+  storeNotifs.forEach(n => {
+    const isPhase1 = n.fase === '1ª Notificação' || n.titulo.toLowerCase().includes('1ª');
+    const isPhase2 = n.fase === '2ª Notificação' || n.titulo.toLowerCase().includes('2ª');
+    const isPhase3 = n.fase === '3ª Notificação' || n.titulo.toLowerCase().includes('3ª');
+
+    if (isPhase1) {
+      if (!phases['1ª Notificação'] || new Date(n.dataEnvio) > new Date(phases['1ª Notificação'].dataEnvio)) {
+        phases['1ª Notificação'] = n;
+      }
+    } else if (isPhase2) {
+      if (!phases['2ª Notificação'] || new Date(n.dataEnvio) > new Date(phases['2ª Notificação'].dataEnvio)) {
+        phases['2ª Notificação'] = n;
+      }
+    } else if (isPhase3) {
+      if (!phases['3ª Notificação'] || new Date(n.dataEnvio) > new Date(phases['3ª Notificação'].dataEnvio)) {
+        phases['3ª Notificação'] = n;
+      }
+    }
+  });
+
+  return phases;
+};
+
 export const StoresView: React.FC<StoresViewProps> = ({
   stores,
   notifications,
   pisos,
+  initialStoreProfileId,
+  onClearInitialStoreProfileId,
+  onNavigateToTab,
   onAddStore,
   onUpdateStore,
   onDeleteStore,
@@ -65,6 +101,16 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
   // Local state for active sub-view
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  
+  // Navigate to store profile from other views
+  useEffect(() => {
+    if (initialStoreProfileId) {
+      setSelectedStoreId(initialStoreProfileId);
+      if (onClearInitialStoreProfileId) {
+        onClearInitialStoreProfileId();
+      }
+    }
+  }, [initialStoreProfileId, onClearInitialStoreProfileId]);
   
   // Create Store Modal State
   const [isNewStoreOpen, setIsNewStoreOpen] = useState(false);
@@ -326,6 +372,8 @@ export const StoresView: React.FC<StoresViewProps> = ({
               filteredStores.map(store => {
                 const isRec = isStoreRecurrent(store.id, notifications, nowStr);
                 const countObj = storeCounters[store.id] || { total: 0, pendentes: 0, resolvidas: 0 };
+                const storeNotifs = notifications.filter(n => n.lojaId === store.id);
+                const phases = getPhasesInfo(store.id, storeNotifs);
                 
                 return (
                   <div 
@@ -369,7 +417,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
                       </div>
 
                       {/* Info Row indicators */}
-                      <div className="mt-4 space-y-2 text-xs text-slate-300 border-b border-[#253549] pb-4">
+                      <div className="mt-4 space-y-2 text-xs text-slate-300 border-b border-[#253549]/40 pb-3">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-[#00C4A7] shrink-0" />
                           <span>{store.piso}</span>
@@ -377,6 +425,47 @@ export const StoresView: React.FC<StoresViewProps> = ({
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-[#00C4A7] shrink-0" />
                           <span>Gerente: <span className="font-semibold text-slate-200">{store.responsavel}</span></span>
+                        </div>
+                      </div>
+
+                      {/* Phase Tracker Bar */}
+                      <div className="mt-3.5 pt-0.5 space-y-1.5 flex flex-col">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Fases de Notificação (7 Dias)</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(['1ª Notificação', '2ª Notificação', '3ª Notificação'] as const).map((phaseKey, idx) => {
+                            const phaseNotif = phases[phaseKey];
+                            let bgClass = "bg-[#0F1923] border-slate-800 text-slate-500 hover:border-slate-700";
+                            let label = `${idx + 1}ª Vazia`;
+                            
+                            if (phaseNotif) {
+                              const dStatus = getNotificationDisplayStatus(phaseNotif, nowStr);
+                              if (dStatus === 'Resolvida') {
+                                bgClass = "bg-green-500/10 border-green-500/25 text-green-400 hover:border-green-500/40";
+                                label = `${idx + 1}ª Res.`;
+                              } else if (dStatus === 'Cancelada') {
+                                bgClass = "bg-slate-800/60 border-slate-700 text-slate-400 hover:border-slate-600";
+                                label = `${idx + 1}ª Canc.`;
+                              } else if (dStatus === 'Vencida') {
+                                bgClass = "bg-red-500/10 border-red-500/25 text-red-500 font-bold animate-pulse hover:border-red-500/40";
+                                label = `${idx + 1}ª Venc.`;
+                              } else {
+                                bgClass = "bg-amber-500/10 border-amber-500/25 text-amber-500 font-bold hover:border-amber-500/40";
+                                label = `${idx + 1}ª Ativ.`;
+                              }
+                            }
+                            
+                            return (
+                              <div 
+                                key={phaseKey}
+                                className={`border text-[9px] font-bold py-1 rounded-md text-center transition-all ${bgClass}`}
+                                title={phaseNotif ? `Título: ${phaseNotif.titulo}` : "Sem notificação"}
+                              >
+                                {label}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -611,7 +700,125 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
               {/* Box 2: Mini-Dashboard */}
               <div className="lg:col-span-2 space-y-6">
-                
+
+                {/* 3-Step Sequential Phase Tracker */}
+                <div className="bg-[#1A2636] border border-[#253549] rounded-xl p-5 shadow-lg space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#253549]/60 pb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-[#00C4A7]" />
+                        Fluxo de Notificações Sequenciais
+                      </h4>
+                      <p className="text-[11px] text-slate-450 mt-0.5">Acompanhamento das 3 fases regulamentares de atendimento de exigências por loja</p>
+                    </div>
+                    <span className="text-[10px] bg-slate-900 border border-slate-800 text-[#00C4A7] font-bold px-2 py-1 rounded-md uppercase font-mono tracking-wider">
+                      Prazo: 7 Dias por Fase
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+                    {(() => {
+                      const phases = getPhasesInfo(currentStore.id, profileData.storeNotifs);
+                      return (['1ª Notificação', '2ª Notificação', '3ª Notificação'] as const).map((phaseKey, idx) => {
+                        const phaseNotif = phases[phaseKey];
+                        
+                        let cardBorder = "border-dashed border-slate-800 bg-[#0F1923]/45";
+                        let badgeColor = "bg-slate-900 border-slate-800 text-slate-500";
+                        let headingColor = "text-slate-500";
+                        let statusText = "Aguardando Ocorrência";
+                        let descText = "Nenhuma infração registrada nesta categoria.";
+                        
+                        if (phaseNotif) {
+                          const dStatus = getNotificationDisplayStatus(phaseNotif, nowStr);
+                          if (dStatus === 'Resolvida') {
+                            cardBorder = "border-green-500/30 bg-green-500/5";
+                            badgeColor = "bg-green-500/10 border-green-500/20 text-[#22C55E]";
+                            headingColor = "text-[#22C55E] font-bold";
+                            statusText = "Concluída / Regularizada";
+                            descText = `Resolvida em ${phaseNotif.dataResolucao ? new Date(phaseNotif.dataResolucao).toLocaleDateString('pt-BR') : 'Data n/d'}.`;
+                          } else if (dStatus === 'Cancelada') {
+                            cardBorder = "border-slate-700/50 bg-slate-800/100";
+                            badgeColor = "bg-slate-800 border-slate-700 text-slate-450";
+                            headingColor = "text-slate-450";
+                            statusText = "Cancelada";
+                            descText = "Esta pendência foi oficializada como revogada por engano ou ajuste.";
+                          } else if (dStatus === 'Vencida') {
+                            cardBorder = "border-red-500/30 bg-red-500/5";
+                            badgeColor = "bg-red-500/15 border-red-500/20 text-[#EF4444]";
+                            headingColor = "text-[#EF4444] font-bold";
+                            statusText = "Vencida! Prazo de 7 Dias Excedido";
+                            descText = `Prazo máximo de regularização estipulado até ${new Date(phaseNotif.dataVencimento).toLocaleDateString('pt-BR')}.`;
+                          } else {
+                            // Active / Pending
+                            cardBorder = "border-amber-500/30 bg-amber-500/5";
+                            badgeColor = "bg-[#F59E0B]/10 border-[#F59E0B]/20 text-[#F59E0B]";
+                            headingColor = "text-[#F59E0B] font-bold";
+                            statusText = "Ativa — Regularização Necessária";
+                            const daysRemaining = Math.ceil((new Date(phaseNotif.dataVencimento).getTime() - new Date(nowStr).getTime()) / (1000 * 60 * 60 * 24));
+                            descText = daysRemaining >= 0 
+                              ? `Exigência dentro do prazo! Restam mais ${daysRemaining} dias para sanar (até ${new Date(phaseNotif.dataVencimento).toLocaleDateString('pt-BR')}).`
+                              : "Prazo esgotado! Providenciar próxima fase.";
+                          }
+                        }
+
+                        return (
+                          <div key={phaseKey} className={`border rounded-xl p-4 flex flex-col justify-between space-y-4 transition-all duration-200 relative ${cardBorder}`}>
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${badgeColor}`}>
+                                  {phaseKey}
+                                </span>
+                                {phaseNotif && (
+                                  <span className="font-mono text-[9px] text-slate-500">
+                                    {new Date(phaseNotif.dataEnvio).toLocaleDateString('pt-BR')}
+                                  </span>
+                                )}
+                              </div>
+                              <h5 className={`text-xs font-semibold uppercase tracking-tight pt-1 ${headingColor}`}>
+                                {phaseNotif ? phaseNotif.titulo : "Fila de Conformidade"}
+                              </h5>
+                              <p className="text-[11px] text-slate-350 leading-relaxed font-sans">
+                                {phaseNotif ? phaseNotif.descricao : descText}
+                              </p>
+                            </div>
+
+                            <div className="pt-2.5 border-t border-[#253549]/40 flex items-center justify-between mt-auto">
+                              <span className="text-[9px] font-bold text-slate-450 block truncate" style={{ maxWidth: '140px' }} title={statusText}>
+                                {statusText}
+                              </span>
+                              
+                              {phaseNotif ? (
+                                <button
+                                  onClick={() => onViewNotificationDetail(phaseNotif)}
+                                  className="bg-[#151F2D] hover:bg-slate-800 text-[10px] font-bold text-[#00C4A7] border border-[#253549] px-2 py-1 rounded cursor-pointer transition-all"
+                                >
+                                  Dossiê
+                                </button>
+                              ) : (
+                                onNavigateToTab && (
+                                  <button
+                                    onClick={() => {
+                                      onNavigateToTab('notifications', {
+                                        prefill: {
+                                          lojaId: currentStore.id,
+                                          fase: phaseKey
+                                        }
+                                      });
+                                    }}
+                                    className="bg-[#00C4A7] hover:bg-[#00B096] text-slate-900 text-[10px] font-bold px-2 py-1 rounded shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+                                  >
+                                    Emitir {idx + 1}ª
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
                 {/* Gauge stats panel */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   

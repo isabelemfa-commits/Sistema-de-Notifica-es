@@ -48,8 +48,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <ShoppingBag className="w-6 h-6 animate-pulse" />
             </div>
             {!collapsed && (
-              <span className="font-bold tracking-tight text-base text-slate-100 uppercase select-none whitespace-nowrap">
-                Mall<span className="text-[#00C4A7]">Control</span>
+              <span className="font-bold tracking-tight text-sm text-slate-100 uppercase select-none whitespace-nowrap">
+                Notif<span className="text-[#00C4A7]">Loja</span>
               </span>
             )}
           </div>
