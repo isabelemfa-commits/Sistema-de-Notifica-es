@@ -21,7 +21,11 @@ import {
 
 type AuthMode = 'login' | 'register' | 'forgot-password';
 
-export const LoginView: React.FC = () => {
+interface LoginViewProps {
+  unauthorizedEmail?: string;
+}
+
+export const LoginView: React.FC<LoginViewProps> = ({ unauthorizedEmail }) => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('isabelemfa@gmail.com');
   const [password, setPassword] = useState('Notificasrp');
@@ -33,6 +37,17 @@ export const LoginView: React.FC = () => {
   const clearMessages = () => {
     setError(null);
     setMessage(null);
+  };
+
+  const handleLogout = async () => {
+    setLoading(true);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -125,6 +140,29 @@ export const LoginView: React.FC = () => {
               {mode === 'login' ? 'Acesse o sistema de gestão Rio Poty' : mode === 'register' ? 'Comece a gerenciar notificações hoje mesmo' : 'Enviaremos um link para resetar sua senha'}
             </p>
           </div>
+
+          {/* Unauthorized Message */}
+          {unauthorizedEmail && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col items-center text-center gap-3">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-red-500">Acesso Restrito</h4>
+                <p className="text-xs text-slate-300">
+                  O email <span className="font-bold text-white">{unauthorizedEmail}</span> não possui permissão para acessar este sistema.
+                </p>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Solicite acesso ao administrador (isabelemfa@gmail.com) ou tente outra conta.
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={handleLogout}
+                className="mt-2 text-xs font-bold text-[#00C4A7] hover:underline"
+              >
+                Entrar com outra conta
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleAuth} className="space-y-4">
             {mode === 'register' && (

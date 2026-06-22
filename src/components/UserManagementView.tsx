@@ -14,7 +14,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
 
   // Form State
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
   const [creating, setCreating] = useState(false);
@@ -49,7 +48,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: newEmail,
-          password: newPassword,
           name: newName,
           role: newRole,
           adminEmail
@@ -57,11 +55,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao criar usuário');
+      if (!response.ok) throw new Error(data.error || 'Erro ao autorizar usuário');
 
-      setSuccess('Usuário criado com sucesso!');
+      setSuccess('Usuário autorizado com sucesso!');
       setNewEmail('');
-      setNewPassword('');
       setNewName('');
       fetchUsers();
     } catch (err: any) {
@@ -105,7 +102,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
             </div>
             
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">E-mail</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">E-mail para Autorizar</label>
               <div className="relative">
                 <input 
                   type="email" 
@@ -117,19 +114,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
                 />
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Senha Inicial</label>
-              <input 
-                type="password" 
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="******"
-                className="w-full bg-[#141E2B] border border-[#2D3748] rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-[#00C4A7] transition-all"
-              />
+              <p className="mt-1 text-[10px] text-slate-500 italic px-1">O usuário deverá entrar com este E-mail via Google.</p>
             </div>
 
             <div>
@@ -163,8 +148,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
               disabled={creating}
               className="w-full bg-[#00C4A7] hover:bg-[#00E5C2] text-[#0F1923] font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
-              Criar Usuário
+              {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+              Autorizar Acesso
             </button>
           </form>
         </div>

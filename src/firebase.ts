@@ -101,21 +101,29 @@ async function testConnection() {
 }
 testConnection();
 
-// Safe Database Fetch with Error Mapping
+export async function fetchUserProfile(email: string): Promise<any | null> {
+  try {
+    const docSnap = await getDocFromServer(doc(db, 'user_profiles', email.toLowerCase()));
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
+}
+
+// Global data access (Simplified: removing individual user filtering for shared dashboard)
 export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseState, 'pisos' | 'categorias' | 'tiposNotificacao'>> {
   try {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error("User not authenticated");
-
-    const storesQuery = query(collection(db, 'stores'), where('userId', '==', userId));
-    const storesSnapshot = await getDocs(storesQuery);
+    const storesSnapshot = await getDocs(collection(db, 'stores'));
     const stores: Store[] = [];
     storesSnapshot.forEach((docSnap) => {
       stores.push({ id: docSnap.id, ...docSnap.data() } as Store);
     });
 
-    const notificationsQuery = query(collection(db, 'notifications'), where('userId', '==', userId));
-    const notificationsSnapshot = await getDocs(notificationsQuery);
+    const notificationsSnapshot = await getDocs(collection(db, 'notifications'));
     const notifications: Notification[] = [];
     notificationsSnapshot.forEach((docSnap) => {
       notifications.push({ id: docSnap.id, ...docSnap.data() } as Notification);

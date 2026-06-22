@@ -36,13 +36,16 @@ import {
   saveStoreToFirestore, 
   deleteStoreFromFirestore, 
   saveNotificationToFirestore, 
-  deleteNotificationFromFirestore 
+  deleteNotificationFromFirestore,
+  fetchUserProfile
 } from './firebase';
 
 export default function App() {
   // 0. Auth State
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
 
   // 1. Database State & Persistence synchronizer
   const [dbState, setDbState] = useState<DatabaseState>(() => loadDatabase());
@@ -51,8 +54,26 @@ export default function App() {
 
   // Auth Observer
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      setIsUnauthorized(false);
+      
+      if (currentUser && currentUser.email) {
+        setAuthLoading(true);
+        const profile = await fetchUserProfile(currentUser.email);
+        
+        // Master admin bypass
+        const isMaster = currentUser.email === "isabelemfa@gmail.com";
+        
+        if (profile || isMaster) {
+          setUserProfile(profile || { email: currentUser.email, role: 'admin', name: currentUser.displayName });
+        } else {
+          setIsUnauthorized(true);
+        }
+      } else {
+        setUserProfile(null);
+      }
+      
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -60,8 +81,8 @@ export default function App() {
 
   // Initial Sync with Firestore cloud
   useEffect(() => {
-    // Only sync if user is authenticated
-    if (!user) {
+    // Only sync if user is authenticated and authorized
+    if (!user || (!userProfile && user.email !== "isabelemfa@gmail.com")) {
       setIsCloudActive(false);
       return;
     }
@@ -333,10 +354,12 @@ export default function App() {
     );
   }
 
-  if (!user) {
+  if (!user || isUnauthorized) {
     return (
       <div className="min-h-screen bg-[#0F1923]">
-        <LoginView />
+        <LoginView 
+          unauthorizedEmail={isUnauthorized ? user?.email || undefined : undefined} 
+        />
         <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
     );

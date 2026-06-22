@@ -19,17 +19,33 @@ if (getApps().length === 0) {
       }
     }
   } catch (err) {
-    console.error("Error reading firebase-applet-config.json:", err);
+    console.error("Error reading projectId from config:", err);
   }
 
   console.log('Initializing Firebase Admin for project:', projectId);
+  // We use projectId to ensure it targets the provisioned project
   initializeApp({
     projectId: projectId
   });
 }
 
 const auth = getAuth();
-const db = getFirestore();
+
+// Get database ID from config
+let databaseId = "(default)";
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (config.firestoreDatabaseId) {
+      databaseId = config.firestoreDatabaseId;
+    }
+  }
+} catch (err) {
+  console.error("Error reading databaseId from config:", err);
+}
+
+const db = getFirestore(databaseId);
 
 async function startServer() {
   const app = express();
@@ -37,35 +53,29 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route to create a user
+  // API Route to register a user email in Firestore (Simplified)
   app.post("/api/admin/create-user", async (req, res) => {
-    const { email, password, name, role, adminEmail } = req.body;
+    const { email, name, role, adminEmail } = req.body;
 
     // Security check: Only isabelemfa@gmail.com can call this
     if (adminEmail !== "isabelemfa@gmail.com") {
-      return res.status(403).json({ error: "Unauthorized. Only the master admin can create users." });
+      return res.status(403).json({ error: "Unauthorized. Only the master admin can manage users." });
     }
 
     try {
-      // Create the Auth user
-      const userRecord = await auth.createUser({
-        email,
-        password,
-        displayName: name,
-      });
-
-      // Store profile in Firestore
-      await db.collection("user_profiles").doc(userRecord.uid).set({
-        uid: userRecord.uid,
-        email,
+      const userRef = db.collection("user_profiles").doc(email.toLowerCase());
+      
+      await userRef.set({
+        email: email.toLowerCase(),
         name,
         role: role || "user",
         createdAt: new Date().toISOString(),
-      });
+        status: 'active'
+      }, { merge: true });
 
-      res.json({ success: true, uid: userRecord.uid });
+      res.json({ success: true, email: email.toLowerCase() });
     } catch (error: any) {
-      console.error("Error creating user:", error);
+      console.error("Error creating user record:", error);
       res.status(500).json({ error: error.message });
     }
   });
