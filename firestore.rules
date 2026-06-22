@@ -9,11 +9,11 @@ service cloud.firestore {
 
     // Helper to check if the user is the master administrator
     function isAdmin() {
-      return request.auth != null && (request.auth.token.email == 'isabelemfa@gmail.com' || request.auth.uid == 'a8q0fF87gbZXpNS3wgpU2rIvJpG3');
+      return true; // Simplified for public access
     }
 
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /stores/{storeId} {

@@ -40,56 +40,19 @@ import {
 } from './firebase';
 
 export default function App() {
-  // 0. Auth State
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [isUnauthorized, setIsUnauthorized] = useState(false);
+  // 0. Auth state is mocked for direct universal access
+  const user = { email: 'public@riopoty.com', displayName: 'Usuário' };
+  const userProfile = { role: 'admin', name: 'Usuário' };
+  const authLoading = false;
+  const isUnauthorized = false;
 
   // 1. Database State & Persistence synchronizer
   const [dbState, setDbState] = useState<DatabaseState>(() => loadDatabase());
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isCloudActive, setIsCloudActive] = useState<boolean>(false);
 
-  // Auth Observer
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setIsUnauthorized(false);
-      
-      if (currentUser && currentUser.email) {
-        setAuthLoading(true);
-        const profile = await fetchUserProfile(currentUser.email);
-        
-        // Master admin bypass
-        const isMaster = currentUser.email === "isabelemfa@gmail.com";
-        
-        if (profile || isMaster) {
-          setUserProfile(profile || { email: currentUser.email, role: 'owner', name: currentUser.displayName });
-          // If master, force role to owner in local state even if DB says otherwise
-          if (isMaster) {
-            setUserProfile((prev: any) => ({ ...prev, role: 'owner' }));
-          }
-        } else {
-          setIsUnauthorized(true);
-        }
-      } else {
-        setUserProfile(null);
-      }
-      
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
   // Initial Sync with Firestore cloud
   useEffect(() => {
-    // Only sync if user is authenticated and authorized
-    if (!user || (!userProfile && user.email !== "isabelemfa@gmail.com")) {
-      setIsCloudActive(false);
-      return;
-    }
-
     async function initFirestoreSync() {
       setIsSyncing(true);
       try {
@@ -104,25 +67,16 @@ export default function App() {
           }));
           setIsCloudActive(true);
           addToast('success', 'Nuvem Firestore Ativa', `Sincronizado! Carregados ${cloudData.stores.length} lojas e ${cloudData.notifications.length} comunicados operacionais em tempo real.`);
-        } else {
-          // Cloud empty, upload local mock state structure
-          console.log("Banco na nuvem vazio, migrando banco local inicial...");
-          const localState = loadDatabase();
-          await migrateLocalDataToFirestore(localState);
-          setDbState(localState);
-          setIsCloudActive(true);
-          addToast('success', 'Migração Concluída', 'Seus dados locais foram salvos com sucesso e sincronizados na nuvem Firebase Firestore!');
         }
       } catch (error) {
         console.warn("Firestore sync not available, using offline local storage.", error);
         setIsCloudActive(false);
-        addToast('info', 'Banco de dados local', 'Executando em modo de contingência local. Suas alterações serão salvas localmente.');
       } finally {
         setIsSyncing(false);
       }
     }
     initFirestoreSync();
-  }, [user]);
+  }, []);
 
   // Sync to local fallback mirror
   useEffect(() => {
@@ -345,29 +299,6 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#0F1923] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 text-[#00C4A7] animate-spin" />
-          <p className="text-slate-400 text-sm animate-pulse">Autenticando Rio Poty...</p>
-        </div>
-        <ToastContainer toasts={toasts} onRemove={removeToast} />
-      </div>
-    );
-  }
-
-  if (!user || isUnauthorized) {
-    return (
-      <div className="min-h-screen bg-[#0F1923]">
-        <LoginView 
-          unauthorizedEmail={isUnauthorized ? user?.email || undefined : undefined} 
-        />
-        <ToastContainer toasts={toasts} onRemove={removeToast} />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#0F1923] flex font-sans">
       
@@ -387,7 +318,7 @@ export default function App() {
         }} 
         collapsed={sidebarCollapsed} 
         setCollapsed={setSidebarCollapsed}
-        userEmail={user?.email || undefined}
+        userEmail={undefined}
       />
 
       {/* Main Container Right */}

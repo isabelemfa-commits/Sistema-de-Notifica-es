@@ -109,23 +109,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
       </div>
-
-      {/* Footer / Profile info of Elegant Dark */}
-      <div className="p-4 mt-auto">
-        {!collapsed ? (
-          <div className="p-4 bg-[#1A2636] rounded-xl border border-[#2D3748]">
-            <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider mb-2 select-none">Logado como</p>
-            <p className="text-xs font-semibold text-slate-100 truncate">{userEmail || 'Visitante'}</p>
-            <p className="text-[10px] text-[#00C4A7] uppercase font-bold mt-1 tracking-wider">
-              {isAdmin ? 'Proprietária' : 'Gestor de Operações'}
-            </p>
-          </div>
-        ) : (
-          <div className="flex justify-center text-[#00C4A7] py-2" title={`Logado como ${userEmail}`}>
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-        )}
-      </div>
     </aside>
   );
 };
