@@ -88,18 +88,8 @@ const generatePrintableHTML = (notif: Notification, store?: Store): string => {
         <!-- Brand Header Section -->
         <div class="flex items-center justify-between border-b pb-4 mb-6 border-slate-200">
           <div class="flex items-center gap-3">
-            <div class="w-12 h-12 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10">
-                <!-- Petals Rio Poty Official Logo -->
-                <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#003026"/>
-                <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#003026"/>
-                <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#003026"/>
-                <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#003026"/>
-                <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
-              </svg>
-            </div>
+            <img src="/src/assets/images/logo_rio_poty_1782240302361.jpg" alt="Logo Rio Poty" class="h-12 object-contain" />
             <div class="flex flex-col">
-              <span class="text-2xl font-extrabold tracking-tighter text-[#003026] leading-none">RioPoty</span>
               <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Sá Cavalcante</span>
             </div>
           </div>
@@ -183,17 +173,8 @@ const generatePrintableHTML = (notif: Notification, store?: Store): string => {
         <!-- Page 2 Brand Header -->
         <div class="flex items-center justify-between border-b pb-4 mb-6 border-slate-200">
           <div class="flex items-center gap-3">
-            <div class="w-12 h-12 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10">
-                <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#003026"/>
-                <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#003026"/>
-                <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#003026"/>
-                <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#003026"/>
-                <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
-              </svg>
-            </div>
+            <img src="/src/assets/images/logo_rio_poty_1782240302361.jpg" alt="Logo Rio Poty" class="h-12 object-contain" />
             <div class="flex flex-col">
-              <span class="text-2xl font-extrabold tracking-tighter text-[#003026] leading-none">RioPoty</span>
               <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Sá Cavalcante</span>
             </div>
           </div>

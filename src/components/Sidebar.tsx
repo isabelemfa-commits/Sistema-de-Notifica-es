@@ -9,7 +9,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   ShieldCheck,
-  ShoppingBag
+  ShoppingBag,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'stores', name: 'Gestão de Lojas', icon: Store },
     { id: 'floors', name: 'Painel por Piso', icon: Layers },
     { id: 'reports', name: 'Relatórios', icon: BarChart3 },
+    ...(isAdmin ? [{ id: 'users', name: 'Usuários', icon: Users }] : []),
     { id: 'settings', name: 'Configurações', icon: Settings }
   ];
 
@@ -48,22 +50,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Logo area */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-[#1E293B]">
           <div className="flex items-center gap-3 overflow-hidden animate-fade-in">
-            <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-9">
-                {/* Petals Rio Poty Official Logo */}
-                <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#00C4A7"/>
-                <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#00C4A7"/>
-                <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#00C4A7"/>
-                <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#00C4A7"/>
-                <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
-              </svg>
-            </div>
+            <img 
+              src="/src/assets/images/logo_rio_poty_1782240302361.jpg" 
+              alt="Rio Poty Logo" 
+              className={`${collapsed ? 'w-10 h-10' : 'h-10'} object-contain`}
+              referrerPolicy="no-referrer"
+            />
             {!collapsed && (
               <div className="flex flex-col">
-                <span className="font-extrabold tracking-tighter text-xl text-slate-100 leading-none select-none">
-                  RioPoty
-                </span>
-                <span className="text-[8px] uppercase tracking-[0.2em] text-slate-400 font-bold leading-none mt-1">
+                <span className="text-[8px] uppercase tracking-[0.2em] text-slate-400 font-bold leading-none">
                   Sá Cavalcante
                 </span>
               </div>
@@ -108,6 +103,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
+      </div>
+
+      {/* Footer / Profile info of Elegant Dark */}
+      <div className="p-4 mt-auto">
+        {!collapsed ? (
+          <div className="p-4 bg-[#1A2636] rounded-xl border border-[#2D3748]">
+            <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider mb-2 select-none">Logado como</p>
+            <p className="text-xs font-semibold text-slate-100 truncate">{userEmail || 'Visitante'}</p>
+            <p className="text-[10px] text-[#00C4A7] uppercase font-bold mt-1 tracking-wider">
+              {isAdmin ? 'Proprietária' : 'Gestor de Operações'}
+            </p>
+          </div>
+        ) : (
+          <div className="flex justify-center text-[#00C4A7] py-2" title={`Logado como ${userEmail}`}>
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+        )}
       </div>
     </aside>
   );

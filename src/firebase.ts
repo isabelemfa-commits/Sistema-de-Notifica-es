@@ -131,6 +131,7 @@ export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseSta
 
     return { stores, notifications };
   } catch (error) {
+    console.error("Fetch database error:", error);
     handleFirestoreError(error, OperationType.GET, 'stores_and_notifications');
   }
 }
@@ -138,8 +139,7 @@ export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseSta
 // Safe Seed & Sync Operations
 export async function migrateLocalDataToFirestore(state: DatabaseState): Promise<void> {
   try {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error("User not authenticated");
+    const userId = auth.currentUser?.uid || 'anonymous';
     const batch = writeBatch(db);
 
     for (const store of state.stores) {
@@ -162,8 +162,7 @@ export async function migrateLocalDataToFirestore(state: DatabaseState): Promise
 // Safe Store & Notification CRUD Wrappers to abstract Firestore errors
 export async function saveStoreToFirestore(store: Store): Promise<void> {
   try {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error("User not authenticated");
+    const userId = auth.currentUser?.uid || 'anonymous';
     await setDoc(doc(db, 'stores', store.id), { ...store, userId });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `stores/${store.id}`);
@@ -180,8 +179,7 @@ export async function deleteStoreFromFirestore(storeId: string): Promise<void> {
 
 export async function saveNotificationToFirestore(notif: Notification): Promise<void> {
   try {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error("User not authenticated");
+    const userId = auth.currentUser?.uid || 'anonymous';
     await setDoc(doc(db, 'notifications', notif.id), { ...notif, userId });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `notifications/${notif.id}`);

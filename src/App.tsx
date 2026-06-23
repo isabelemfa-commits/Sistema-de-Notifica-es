@@ -11,6 +11,7 @@ import { StoresView } from './components/StoresView';
 import { FloorsView } from './components/FloorsView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
+import { UserManagementView } from './components/UserManagementView';
 import { LoginView } from './components/Auth/LoginView';
 
 import { 
@@ -40,19 +41,56 @@ import {
 } from './firebase';
 
 export default function App() {
-  // 0. Auth state is mocked for direct universal access
-  const user = { email: 'public@riopoty.com', displayName: 'Usuário' };
-  const userProfile = { role: 'admin', name: 'Usuário' };
-  const authLoading = false;
-  const isUnauthorized = false;
+  // 0. Auth State
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
 
   // 1. Database State & Persistence synchronizer
   const [dbState, setDbState] = useState<DatabaseState>(() => loadDatabase());
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isCloudActive, setIsCloudActive] = useState<boolean>(false);
 
+  // Auth Observer
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setIsUnauthorized(false);
+      
+      if (currentUser && currentUser.email) {
+        setAuthLoading(true);
+        const profile = await fetchUserProfile(currentUser.email);
+        
+        // Master admin bypass
+        const isMaster = currentUser.email === "isabelemfa@gmail.com";
+        
+        if (profile || isMaster) {
+          setUserProfile(profile || { email: currentUser.email, role: 'owner', name: currentUser.displayName });
+          // If master, force role to owner in local state even if DB says otherwise
+          if (isMaster) {
+            setUserProfile((prev: any) => ({ ...prev, role: 'owner' }));
+          }
+        } else {
+          setIsUnauthorized(true);
+        }
+      } else {
+        setUserProfile(null);
+      }
+      
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Initial Sync with Firestore cloud
   useEffect(() => {
+    // Only sync if user is authenticated and authorized
+    if (!user || (!userProfile && user.email !== "isabelemfa@gmail.com")) {
+      setIsCloudActive(false);
+      return;
+    }
+
     async function initFirestoreSync() {
       setIsSyncing(true);
       try {
@@ -76,7 +114,7 @@ export default function App() {
       }
     }
     initFirestoreSync();
-  }, []);
+  }, [user]);
 
   // Sync to local fallback mirror
   useEffect(() => {
@@ -299,6 +337,29 @@ export default function App() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F1923] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-[#00C4A7] animate-spin" />
+          <p className="text-slate-400 text-sm animate-pulse">Autenticando Rio Poty...</p>
+        </div>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
+
+  if (!user || isUnauthorized) {
+    return (
+      <div className="min-h-screen bg-[#0F1923]">
+        <LoginView 
+          unauthorizedEmail={isUnauthorized ? user?.email || undefined : undefined} 
+        />
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0F1923] flex font-sans">
       
@@ -318,7 +379,7 @@ export default function App() {
         }} 
         collapsed={sidebarCollapsed} 
         setCollapsed={setSidebarCollapsed}
-        userEmail={undefined}
+        userEmail={user?.email || undefined}
       />
 
       {/* Main Container Right */}
@@ -337,18 +398,10 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </button>
             
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-7 h-7">
-                  <path d="M48 48C48 35 40 25 50 15C60 25 52 35 52 48Z" fill="#00C4A7"/>
-                  <path d="M52 52C65 52 75 60 85 50C75 40 65 48 52 48Z" fill="#00C4A7"/>
-                  <path d="M52 52C52 65 60 75 50 85C40 75 48 65 48 52Z" fill="#00C4A7"/>
-                  <path d="M48 48C35 48 25 40 15 50C25 60 35 52 48 52Z" fill="#00C4A7"/>
-                  <path d="M50 44C47 44 45 47 45 50C45 53 47 56 50 56C53 56 55 53 55 50C55 47 53 44 50 44Z" fill="white"/>
-                </svg>
-              </div>
-              <h1 className="text-base font-bold tracking-tighter text-slate-100 hidden sm:block">
-                RioPoty <span className="text-[#00C4A7] font-sans font-normal tracking-normal text-xs ml-1 opacity-80">Gestão de Lojistas</span>
+            <div className="flex items-center gap-3">
+              <img src="/src/assets/images/logo_rio_poty_1782240302361.jpg" alt="Rio Poty Logo" className="h-8 object-contain" />
+              <h1 className="text-xs font-normal tracking-wide text-slate-400 hidden sm:block">
+                Gestão de Lojistas
               </h1>
             </div>
           </div>
@@ -396,8 +449,8 @@ export default function App() {
             {/* User Profile */}
             <div className="hidden lg:flex items-center gap-3 bg-[#0F1923] border border-slate-800 py-1 pl-3 pr-1 rounded-xl group transition-all hover:border-slate-700">
               <div className="flex flex-col items-end">
-                <span className="text-[10px] font-bold text-[#00C4A7] uppercase tracking-wider">{user.displayName || 'Gestor'}</span>
-                <span className="text-[9px] text-slate-500 font-mono truncate max-w-[120px]">{user.email}</span>
+                <span className="text-[10px] font-bold text-[#00C4A7] uppercase tracking-wider">{userProfile?.name || user?.displayName || 'Gestor'}</span>
+                <span className="text-[9px] text-slate-500 font-mono truncate max-w-[120px]">{user?.email}</span>
               </div>
               <div className="w-8 h-8 rounded-lg bg-[#00C4A7]/10 flex items-center justify-center text-[#00C4A7] border border-[#00C4A7]/20">
                 <User className="w-4 h-4" />
@@ -473,6 +526,10 @@ export default function App() {
               pisos={dbState.pisos}
               onTriggerToast={addToast}
             />
+          )}
+
+          {activeTab === 'users' && user?.email === 'isabelemfa@gmail.com' && (
+            <UserManagementView adminEmail={user.email} />
           )}
 
           {activeTab === 'settings' && (
