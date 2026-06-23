@@ -9,7 +9,7 @@ import fs from 'fs';
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
-  let projectId = "tactical-heading-j18qq";
+  let projectId = "notific-ae16crv01-cb89e";
   try {
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
     if (fs.existsSync(configPath)) {
