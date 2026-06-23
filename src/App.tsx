@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { auth } from './firebase';
-import { DatabaseState, Store, Notification, NotificationHistory } from './types';
+import { DatabaseState, Store, Notification, NotificationHistory, GlobalSettings } from './types';
 import { loadDatabase, saveDatabase, getNotificationDisplayStatus } from './mockData';
 import { Sidebar } from './components/Sidebar';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { DashboardView } from './components/DashboardView';
 import { NotificationsView } from './components/NotificationsView';
-import { StoresView } from './components/StoresView';
-import { FloorsView } from './components/FloorsView';
+import { IntegratedStoresView } from './components/IntegratedStoresView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
 import { UserManagementView } from './components/UserManagementView';
@@ -37,7 +36,8 @@ import {
   deleteStoreFromFirestore, 
   saveNotificationToFirestore, 
   deleteNotificationFromFirestore,
-  fetchUserProfile
+  fetchUserProfile,
+  updateGlobalSettings
 } from './firebase';
 
 export default function App() {
@@ -97,14 +97,15 @@ export default function App() {
         console.log("Iniciando carregamento do Firestore Cloud...");
         const cloudData = await fetchFullDatabaseFromFirestore();
         
-        if (cloudData.stores.length > 0) {
+        if (cloudData.stores.length > 0 || cloudData.settings) {
           setDbState(prev => ({
             ...prev,
             stores: cloudData.stores,
-            notifications: cloudData.notifications
+            notifications: cloudData.notifications,
+            settings: cloudData.settings
           }));
           setIsCloudActive(true);
-          addToast('success', 'Nuvem Firestore Ativa', `Sincronizado! Carregados ${cloudData.stores.length} lojas e ${cloudData.notifications.length} comunicados operacionais em tempo real.`);
+          addToast('success', 'Nuvem Firestore Ativa', `Sincronizado! Carregados ${cloudData.stores.length} lojas e configurações operacionais.`);
         }
       } catch (error) {
         console.warn("Firestore sync not available, using offline local storage.", error);
@@ -298,6 +299,17 @@ export default function App() {
     }
   };
 
+  const handleUpdateGlobalSettings = (settings: GlobalSettings) => {
+    setDbState(prev => ({ ...prev, settings }));
+    if (isCloudActive) {
+      updateGlobalSettings(settings)
+        .catch(err => {
+          console.error("Erro ao atualizar configurações:", err);
+          addToast('error', 'Sincronização', 'Erro ao salvar configurações na nuvem.');
+        });
+    }
+  };
+
   // Cross-Navigation routing triggers
   const handleNavigateToNotifications = (tabName: string, filters?: any) => {
     setOuterNotificationFilters(filters);
@@ -380,6 +392,7 @@ export default function App() {
         collapsed={sidebarCollapsed} 
         setCollapsed={setSidebarCollapsed}
         userEmail={user?.email || undefined}
+        settings={dbState.settings}
       />
 
       {/* Main Container Right */}
@@ -399,7 +412,11 @@ export default function App() {
             </button>
             
             <div className="flex items-center gap-3">
-              <img src="/src/assets/images/logo_rio_poty_1782240302361.jpg" alt="Rio Poty Logo" className="h-8 object-contain" />
+              <img 
+                src={dbState.settings?.logoBase64 || "/src/assets/images/logo_rio_poty_1782240302361.jpg"} 
+                alt="Logo" 
+                className="h-8 object-contain" 
+              />
               <h1 className="text-xs font-normal tracking-wide text-slate-400 hidden sm:block">
                 Gestão de Lojistas
               </h1>
@@ -486,6 +503,7 @@ export default function App() {
               pisos={dbState.pisos}
               tiposNotificacao={dbState.tiposNotificacao}
               initialFilters={outerNotificationFilters}
+              settings={dbState.settings}
               onAddNotification={handleAddNotification}
               onUpdateNotification={handleUpdateNotification}
               onDeleteNotification={handleDeleteNotification}
@@ -494,7 +512,7 @@ export default function App() {
           )}
 
           {activeTab === 'stores' && (
-            <StoresView 
+            <IntegratedStoresView 
               stores={dbState.stores}
               notifications={dbState.notifications}
               pisos={dbState.pisos}
@@ -506,16 +524,6 @@ export default function App() {
               onDeleteStore={handleDeleteStore}
               onViewNotificationDetail={handleViewGlobalNotificationDetail}
               onTriggerToast={addToast}
-            />
-          )}
-
-          {activeTab === 'floors' && (
-            <FloorsView 
-              stores={dbState.stores}
-              notifications={dbState.notifications}
-              pisos={dbState.pisos}
-              onNavigateToNotificationsWithFilter={handleNavigateToFloorNotifications}
-              onViewStoreProfile={handleNavigateToStoreProfile}
             />
           )}
 
@@ -536,6 +544,7 @@ export default function App() {
             <SettingsView 
               dbState={dbState}
               onUpdateFullDatabase={handleUpdateFullDatabase}
+              onUpdateSettings={handleUpdateGlobalSettings}
               onTriggerToast={addToast}
             />
           )}

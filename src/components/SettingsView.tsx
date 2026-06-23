@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { DatabaseState } from '../types';
+import { DatabaseState, GlobalSettings } from '../types';
 import { generateMockData } from '../mockData';
 import { read, utils } from 'xlsx';
 import { 
@@ -18,20 +18,63 @@ import {
   FileDown,
   Info,
   Check,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Image as ImageIcon,
+  Building2
 } from 'lucide-react';
 
 interface SettingsViewProps {
   dbState: DatabaseState;
   onUpdateFullDatabase: (nextState: DatabaseState) => void;
+  onUpdateSettings: (settings: GlobalSettings) => void;
   onTriggerToast: (type: 'success' | 'error' | 'warning' | 'info', title: string, msg: string) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   dbState,
   onUpdateFullDatabase,
+  onUpdateSettings,
   onTriggerToast
 }) => {
+  // Global Settings State
+  const [shoppingName, setShoppingName] = useState(dbState.settings?.shoppingName || '');
+  const [logoPreview, setLogoPreview] = useState<string | null>(dbState.settings?.logoBase64 || null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      onTriggerToast('error', 'Formato Inválido', 'Por favor, selecione um arquivo de imagem.');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      onTriggerToast('error', 'Arquivo Muito Grande', 'A logo deve ter no máximo 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setLogoPreview(base64);
+      onUpdateSettings({ ...dbState.settings, logoBase64: base64 });
+      onTriggerToast('success', 'Logo Atualizada', 'A identidade visual do shopping foi salva.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveShoppingName = () => {
+    onUpdateSettings({ ...dbState.settings, shoppingName });
+    onTriggerToast('success', 'Nome Atualizado', 'O nome do shopping foi salvo com sucesso.');
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    onUpdateSettings({ ...dbState.settings, logoBase64: undefined });
+    onTriggerToast('info', 'Logo Removida', 'A logo personalizada foi removida.');
+  };
   // Input fields for adding items
   const [newPisoInput, setNewPisoInput] = useState('');
   const [newTipoInput, setNewTipoInput] = useState('');
@@ -402,6 +445,65 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <p className="text-xs text-slate-400 mt-1">
             Gestão de tabelas básicas, parametrização do mall, backups de contingência e logs de segurança.
           </p>
+        </div>
+      </div>
+
+      {/* Global Brand Identity Settings */}
+      <div className="bg-[#1A2636] border border-[#253549] rounded-xl p-5 shadow-lg space-y-6">
+        <div>
+          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-widest flex items-center gap-2 border-b border-[#253549] pb-3 mb-4">
+            <ImageIcon className="w-4 h-4 text-[#00C4A7]" />
+            Identidade Visual do Shopping
+          </h3>
+          
+          <div className="grid grid-cols-1 gap-8">
+            {/* Logo Upload Section */}
+            <div className="space-y-4">
+              <label className="block text-[11px] text-slate-400 font-bold uppercase">Logotipo do Empreendimento</label>
+              <div className="flex items-start gap-6">
+                <div className="relative group">
+                  <div className="w-48 h-24 bg-[#0F1923] border border-[#253549] rounded-xl flex items-center justify-center overflow-hidden transition-all group-hover:border-[#00C4A7]/50 shadow-inner">
+                    {logoPreview ? (
+                      <img src={logoPreview} alt="Logo Preview" className="max-w-full max-h-full object-contain p-2" />
+                    ) : (
+                      <div className="text-slate-600 flex flex-col items-center gap-1.5">
+                        <ImageIcon className="w-8 h-8 opacity-20" />
+                        <span className="text-[10px] uppercase font-bold tracking-tighter opacity-40">Sem Logo</span>
+                      </div>
+                    )}
+                  </div>
+                  {logoPreview && (
+                    <button 
+                      onClick={handleRemoveLogo}
+                      className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full shadow-lg hover:bg-red-500 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5 flex-1">
+                  <p className="text-[11px] text-slate-450 leading-relaxed">
+                    A logo será exibida no cabeçalho do sistema e nos documentos PDF gerados. Use imagens com fundo transparente (PNG/SVG) para melhor resultado.
+                  </p>
+                  <input 
+                    type="file" 
+                    ref={logoInputRef} 
+                    onChange={handleLogoUpload} 
+                    accept="image/*" 
+                    className="hidden" 
+                  />
+                  <button 
+                    onClick={() => logoInputRef.current?.click()}
+                    className="bg-[#151F2D] hover:bg-slate-800 text-[#00C4A7] border border-[#253549] px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Selecionar Imagem
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

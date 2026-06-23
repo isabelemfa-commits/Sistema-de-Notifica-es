@@ -52,10 +52,16 @@ export interface AppConfig {
   tiposNotificacao: string[];
 }
 
+export interface GlobalSettings {
+  logoBase64?: string;
+  shoppingName?: string;
+}
+
 export interface DatabaseState {
   stores: Store[];
   notifications: Notification[];
   pisos: string[];
   categorias: string[];
   tiposNotificacao: string[];
+  settings?: GlobalSettings;
 }

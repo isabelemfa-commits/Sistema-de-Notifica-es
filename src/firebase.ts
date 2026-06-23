@@ -15,36 +15,35 @@ import {
   enableNetwork
 } from 'firebase/firestore';
 import config from '../firebase-applet-config.json';
-import { DatabaseState, Store, Notification, UserProfile } from './types';
+import { DatabaseState, Store, Notification, UserProfile, GlobalSettings } from './types';
 
 const app = initializeApp(config);
 const databaseId = (config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)') 
   ? config.firestoreDatabaseId 
   : undefined;
 
+// Use a more robust initialization
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, databaseId as any);
 export const auth = getAuth(app);
 
-// Explicitly enable network to avoid "offline" errors
-enableNetwork(db).catch(err => console.warn('Could not enable network:', err));
+// Global connection state
+let isNetworkEnabled = false;
 
-// Persistence disabled to avoid "offline" errors in preview environment
-/*
-try {
-  enableIndexedDbPersistence(db)
-    .catch((err) => {
-      if (err.code === 'failed-precondition') {
-        console.warn('Firestore persistence failed-precondition: multiple tabs open');
-      } else if (err.code === 'unimplemented') {
-        console.warn('Firestore persistence unimplemented in this browser');
-      }
-    });
-} catch (e) {
-  console.error('Error enabling Firestore persistence:', e);
+async function ensureNetwork() {
+  if (isNetworkEnabled) return;
+  try {
+    await enableNetwork(db);
+    isNetworkEnabled = true;
+    console.log('Firestore network enabled successfully.');
+  } catch (err) {
+    console.warn('Could not enable Firestore network:', err);
+  }
 }
-*/
+
+// Initial call
+ensureNetwork();
 
 // Security & Diagnostics Error Handling Pattern required by Skill Guidelines
 export enum OperationType {
@@ -56,17 +55,19 @@ export enum OperationType {
   WRITE = 'write',
 }
 
-async function testConnection() {
-  console.log("Iniciando teste de conexão com o Firestore...");
+async function testConnection(retries = 3) {
+  console.log(`Iniciando teste de conexão com o Firestore (tentativas restantes: ${retries})...`);
   try {
+    await ensureNetwork();
     // Attempt a direct server fetch to verify connectivity
     await getDocFromServer(doc(db, 'test', 'connection'));
     console.log("Teste de conexão Firestore: SUCESSO");
   } catch (error: any) {
     console.warn("Teste de conexão Firestore: FALHA", error.message);
-    if (error.message.includes('offline') || error.code === 'unavailable') {
-      console.info("Tentando forçar reconexão de rede...");
-      await enableNetwork(db).catch(e => console.error("Falha ao habilitar rede:", e));
+    if (retries > 0 && (error.message.includes('offline') || error.code === 'unavailable' || error.code === 'failed-precondition')) {
+      console.info("Tentando reconectar em 2 segundos...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return testConnection(retries - 1);
     }
   }
 }
@@ -110,12 +111,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// testConnection(); // Disabled to prevent startup errors
-
-export async function fetchUserProfile(email: string): Promise<UserProfile | null> {
+export async function fetchUserProfile(email: string, retries = 2): Promise<UserProfile | null> {
   try {
+    await ensureNetwork();
     const docRef = doc(db, 'user_profiles', email.toLowerCase());
-    // Try getDoc first (hits cache if available, then network)
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -123,13 +122,20 @@ export async function fetchUserProfile(email: string): Promise<UserProfile | nul
     }
     return null;
   } catch (error: any) {
-    console.error("Error fetching user profile:", error);
+    const isOffline = error?.message?.includes('offline') || error?.code === 'unavailable' || error?.code === 'failed-precondition';
     
-    // If it's a transient offline error, don't throw, just return null so App can continue
-    if (error?.message?.includes('offline') || error?.code === 'unavailable') {
+    if (isOffline && retries > 0) {
+      console.warn(`Fetch user profile failed (offline), retrying... (${retries} left)`);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return fetchUserProfile(email, retries - 1);
+    }
+
+    if (isOffline) {
+      console.info("Returning null for user profile due to offline state after retries.");
       return null;
     }
-    
+
+    console.error("Error fetching user profile:", error);
     handleFirestoreError(error, OperationType.GET, `user_profiles/${email}`);
     return null;
   }
@@ -148,10 +154,9 @@ export async function createUserProfile(profile: UserProfile): Promise<void> {
 }
 
 // Global data access (Simplified: removing individual user filtering for shared dashboard)
-export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseState, 'pisos' | 'categorias' | 'tiposNotificacao'>> {
+export async function fetchFullDatabaseFromFirestore(retries = 3): Promise<Omit<DatabaseState, 'pisos' | 'categorias' | 'tiposNotificacao'>> {
   try {
-    // Ensure network is active
-    await enableNetwork(db).catch(() => {});
+    await ensureNetwork();
     
     const storesSnapshot = await getDocs(collection(db, 'stores'));
     const stores: Store[] = [];
@@ -165,16 +170,39 @@ export async function fetchFullDatabaseFromFirestore(): Promise<Omit<DatabaseSta
       notifications.push({ id: docSnap.id, ...docSnap.data() } as Notification);
     });
 
-    return { stores, notifications };
-  } catch (error) {
+    const settingsDoc = await getDoc(doc(db, 'config', 'global'));
+    const settings = settingsDoc.exists() ? settingsDoc.data() as GlobalSettings : undefined;
+
+    return { stores, notifications, settings };
+  } catch (error: any) {
+    const isOffline = error?.message?.includes('offline') || error?.code === 'unavailable' || error?.code === 'failed-precondition';
+    
+    if (isOffline && retries > 0) {
+      console.warn(`Fetch database failed (offline), retrying... (${retries} left)`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return fetchFullDatabaseFromFirestore(retries - 1);
+    }
+
     console.error("Fetch database error:", error);
     handleFirestoreError(error, OperationType.GET, 'stores_and_notifications');
+    return { stores: [], notifications: [], settings: undefined };
+  }
+}
+
+export async function updateGlobalSettings(settings: GlobalSettings): Promise<void> {
+  try {
+    await ensureNetwork();
+    await setDoc(doc(db, 'config', 'global'), settings, { merge: true });
+  } catch (error) {
+    console.error("Error updating global settings:", error);
+    handleFirestoreError(error, OperationType.WRITE, 'config/global');
   }
 }
 
 // Safe Seed & Sync Operations
 export async function migrateLocalDataToFirestore(state: DatabaseState): Promise<void> {
   try {
+    await ensureNetwork();
     const userId = auth.currentUser?.uid || 'anonymous';
     const batch = writeBatch(db);
 
@@ -198,6 +226,7 @@ export async function migrateLocalDataToFirestore(state: DatabaseState): Promise
 // Safe Store & Notification CRUD Wrappers to abstract Firestore errors
 export async function saveStoreToFirestore(store: Store): Promise<void> {
   try {
+    await ensureNetwork();
     const userId = auth.currentUser?.uid || 'anonymous';
     await setDoc(doc(db, 'stores', store.id), { ...store, userId });
   } catch (error) {
@@ -207,6 +236,7 @@ export async function saveStoreToFirestore(store: Store): Promise<void> {
 
 export async function deleteStoreFromFirestore(storeId: string): Promise<void> {
   try {
+    await ensureNetwork();
     await deleteDoc(doc(db, 'stores', storeId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
@@ -215,6 +245,7 @@ export async function deleteStoreFromFirestore(storeId: string): Promise<void> {
 
 export async function saveNotificationToFirestore(notif: Notification): Promise<void> {
   try {
+    await ensureNetwork();
     const userId = auth.currentUser?.uid || 'anonymous';
     await setDoc(doc(db, 'notifications', notif.id), { ...notif, userId });
   } catch (error) {
@@ -224,6 +255,7 @@ export async function saveNotificationToFirestore(notif: Notification): Promise<
 
 export async function deleteNotificationFromFirestore(notifId: string): Promise<void> {
   try {
+    await ensureNetwork();
     await deleteDoc(doc(db, 'notifications', notifId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `notifications/${notifId}`);

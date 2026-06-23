@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Store, Notification, NotificationHistory } from '../types';
+import { Store, Notification, NotificationHistory, GlobalSettings } from '../types';
 import { 
   getNotificationDisplayStatus, 
   isExpiringSoon, 
@@ -73,13 +73,16 @@ const formatDateBR = (isoStr: string | undefined): string => {
   return `${day}/${month}/${year}`;
 };
 
-const generatePrintableHTML = (notif: Notification, store?: Store): string => {
+const generatePrintableHTML = (notif: Notification, store?: Store, settings?: GlobalSettings): string => {
   const faseTitle = notif.fase ? notif.fase.toUpperCase() : 'NOTIFICAÇÃO';
   const lucStr = store?.piso ? `${store.piso} - LUC ${store.id || 'S/N'}` : `LUC ${store?.id || 'S/N'}`;
   const storeNameText = store?.nome ? store.nome.toUpperCase() : notif.lojaId.toUpperCase();
   const dateStr = formatDateBR(notif.dataEnvio);
   const photoDateStr = formatDateBR(notif.dataFoto || notif.dataEnvio);
   const motivoText = notif.motivo ? notif.motivo.toUpperCase() : notif.titulo.toUpperCase();
+
+  const logoSrc = settings?.logoBase64 || "/src/assets/images/logo_rio_poty_1782240302361.jpg";
+  const shoppingName = settings?.shoppingName || "Sá Cavalcante";
 
   return `
     <!-- Page 1 -->
@@ -88,10 +91,7 @@ const generatePrintableHTML = (notif: Notification, store?: Store): string => {
         <!-- Brand Header Section -->
         <div class="flex items-center justify-between border-b pb-4 mb-6 border-slate-200">
           <div class="flex items-center gap-3">
-            <img src="/src/assets/images/logo_rio_poty_1782240302361.jpg" alt="Logo Rio Poty" class="h-12 object-contain" />
-            <div class="flex flex-col">
-              <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Sá Cavalcante</span>
-            </div>
+            <img src="${logoSrc}" alt="Logo" class="h-12 object-contain" />
           </div>
           
           <!-- Outer aligned badge with black outline -->
@@ -173,10 +173,7 @@ const generatePrintableHTML = (notif: Notification, store?: Store): string => {
         <!-- Page 2 Brand Header -->
         <div class="flex items-center justify-between border-b pb-4 mb-6 border-slate-200">
           <div class="flex items-center gap-3">
-            <img src="/src/assets/images/logo_rio_poty_1782240302361.jpg" alt="Logo Rio Poty" class="h-12 object-contain" />
-            <div class="flex flex-col">
-              <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Sá Cavalcante</span>
-            </div>
+            <img src="${logoSrc}" alt="Logo" class="h-12 object-contain" />
           </div>
           
           <div class="border border-slate-300 px-4 py-2 text-center bg-slate-50 min-w-[200px] rounded">
@@ -231,6 +228,7 @@ interface NotificationsViewProps {
   pisos: string[];
   tiposNotificacao: string[];
   initialFilters?: any;
+  settings?: GlobalSettings;
   onAddNotification: (notif: Omit<Notification, 'id' | 'historico'> & { historico?: NotificationHistory[] }) => void;
   onUpdateNotification: (notif: Notification) => void;
   onDeleteNotification: (id: string) => void;
@@ -246,6 +244,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   pisos,
   tiposNotificacao,
   initialFilters,
+  settings,
   onAddNotification,
   onUpdateNotification,
   onDeleteNotification,
@@ -525,7 +524,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
   const handlePrintDocument = (notif: Notification) => {
     const store = stores.find(s => s.id === notif.lojaId);
-    const htmlBody = generatePrintableHTML(notif, store);
+    const htmlBody = generatePrintableHTML(notif, store, settings);
     
     const fullHTML = `
       <!DOCTYPE html>
@@ -595,7 +594,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
   const handleDownloadStandaloneHTML = (notif: Notification) => {
     const store = stores.find(s => s.id === notif.lojaId);
-    const htmlBody = generatePrintableHTML(notif, store);
+    const htmlBody = generatePrintableHTML(notif, store, settings);
     const fileName = `Notificacao_${notif.fase ? notif.fase.replace(/\s+/g, '_') : 'Geral'}_LUC_${store?.id || notif.lojaId}.html`;
     
     const fullHTML = `

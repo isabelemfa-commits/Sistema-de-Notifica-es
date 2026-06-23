@@ -1,4 +1,5 @@
 import React from 'react';
+import { GlobalSettings } from '../types';
 import { 
   LayoutDashboard, 
   Bell, 
@@ -19,6 +20,7 @@ interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
   userEmail?: string;
+  settings?: GlobalSettings;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,15 +28,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   collapsed,
   setCollapsed,
-  userEmail
+  userEmail,
+  settings
 }) => {
   const isAdmin = userEmail === 'isabelemfa@gmail.com';
 
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'notifications', name: 'Notificações', icon: Bell },
-    { id: 'stores', name: 'Gestão de Lojas', icon: Store },
-    { id: 'floors', name: 'Painel por Piso', icon: Layers },
+    { id: 'stores', name: 'Gestão de lojas', icon: Store },
     { id: 'reports', name: 'Relatórios', icon: BarChart3 },
     ...(isAdmin ? [{ id: 'users', name: 'Usuários', icon: Users }] : []),
     { id: 'settings', name: 'Configurações', icon: Settings }
@@ -51,18 +53,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-16 flex items-center justify-between px-4 border-b border-[#1E293B]">
           <div className="flex items-center gap-3 overflow-hidden animate-fade-in">
             <img 
-              src="/src/assets/images/logo_rio_poty_1782240302361.jpg" 
-              alt="Rio Poty Logo" 
+              src={settings?.logoBase64 || "/src/assets/images/logo_rio_poty_1782240302361.jpg"} 
+              alt="Logo" 
               className={`${collapsed ? 'w-10 h-10' : 'h-10'} object-contain`}
               referrerPolicy="no-referrer"
             />
-            {!collapsed && (
-              <div className="flex flex-col">
-                <span className="text-[8px] uppercase tracking-[0.2em] text-slate-400 font-bold leading-none">
-                  Sá Cavalcante
-                </span>
-              </div>
-            )}
           </div>
           
           <button 
