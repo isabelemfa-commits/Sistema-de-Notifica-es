@@ -53,20 +53,47 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route to register a user email in Firestore (Simplified)
+  // API Route to create a user in Firebase Auth and Firestore
   app.post("/api/admin/create-user", async (req, res) => {
-    const { email, name, role, adminEmail } = req.body;
+    const { email, password, name, role, adminEmail } = req.body;
 
     // Security check: Only isabelemfa@gmail.com can call this
     if (adminEmail !== "isabelemfa@gmail.com") {
       return res.status(403).json({ error: "Unauthorized. Only the master admin can manage users." });
     }
 
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
     try {
+      // 1. Create user in Firebase Auth
+      let userRecord;
+      try {
+        userRecord = await auth.createUser({
+          email: email.toLowerCase(),
+          password: password,
+          displayName: name,
+        });
+        console.log('Successfully created new user in Auth:', userRecord.uid);
+      } catch (authError: any) {
+        // If user already exists in Auth, we might want to just update the Firestore record
+        // but typically for "create", we expect a new user.
+        if (authError.code === 'auth/email-already-in-use') {
+          // If already in Auth, fetch the user to get the UID
+          userRecord = await auth.getUserByEmail(email.toLowerCase());
+          console.log('User already exists in Auth, updating Firestore profile for UID:', userRecord.uid);
+        } else {
+          throw authError;
+        }
+      }
+
+      // 2. Create/Update user profile in Firestore
       const userRef = db.collection("user_profiles").doc(email.toLowerCase());
       const roleToSet = email.toLowerCase() === "isabelemfa@gmail.com" ? "owner" : (role || "user");
       
       await userRef.set({
+        uid: userRecord.uid,
         email: email.toLowerCase(),
         name,
         role: roleToSet,
@@ -74,10 +101,16 @@ async function startServer() {
         status: 'active'
       }, { merge: true });
 
-      res.json({ success: true, email: email.toLowerCase() });
+      res.json({ success: true, email: email.toLowerCase(), uid: userRecord.uid });
     } catch (error: any) {
-      console.error("Error creating user record:", error);
-      res.status(500).json({ error: error.message });
+      console.error("Error creating user:", error);
+      
+      let errorMessage = error.message;
+      if (error.code === 'auth/internal-error' && error.message.includes('identitytoolkit.googleapis.com')) {
+        errorMessage = "A API do Firebase Authentication não está ativa. Por favor, clique no link abaixo para ativar:\n\nhttps://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=" + (process.env.FIREBASE_PROJECT_ID || "notific-ae16crv01-cb89e");
+      }
+      
+      res.status(500).json({ error: errorMessage });
     }
   });
 
