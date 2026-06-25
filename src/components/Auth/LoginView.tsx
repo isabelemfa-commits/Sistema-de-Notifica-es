@@ -119,27 +119,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ unauthorizedEmail }) => {
       }
     } catch (err: any) {
       console.error('Auth error:', err);
-      let errorMessage = 'Ocorreu um erro inesperado. Tente novamente.';
+      let errorMessage = err.message || 'Ocorreu um erro inesperado. Tente novamente.';
       
-      switch (err.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'Usuário não encontrado.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Senha incorreta.';
-          break;
-        case 'auth/email-already-in-use':
-          errorMessage = 'Este e-mail já está em uso.';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'E-mail inválido.';
-          break;
-        case 'auth/weak-password':
-          errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = 'O provedor de E-mail/Senha não está ativado no Console do Firebase. Por favor, ative-o em Authentication > Sign-in method.';
-          break;
+      if (err.code) {
+        switch (err.code) {
+          case 'auth/user-not-found':
+            errorMessage = 'Usuário não encontrado.';
+            break;
+          case 'auth/wrong-password':
+            errorMessage = 'Senha incorreta.';
+            break;
+          case 'auth/email-already-in-use':
+            errorMessage = 'Este e-mail já está em uso.';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'E-mail inválido.';
+            break;
+          case 'auth/weak-password':
+            errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+            break;
+          case 'auth/operation-not-allowed':
+            errorMessage = 'O provedor de E-mail/Senha não está ativado no Console do Firebase.';
+            break;
+        }
       }
       setError(errorMessage);
     } finally {

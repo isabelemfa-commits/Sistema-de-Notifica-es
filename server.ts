@@ -26,10 +26,13 @@ process.env.GOOGLE_CLOUD_PROJECT = projectId;
 process.env.GCLOUD_PROJECT = projectId;
 
 const firebaseApp = getApps().length === 0 
-  ? initializeApp({ projectId }) 
+  ? initializeApp({ 
+      projectId,
+      // Pass the projectId explicitly to all services via options
+    }) 
   : getApp();
 
-const currentProjectId = firebaseApp.options.projectId || process.env.GOOGLE_CLOUD_PROJECT || 'unknown';
+const currentProjectId = firebaseApp.options.projectId || projectId;
 console.log('Firebase Admin initialized. App count:', getApps().length, 'Project:', currentProjectId);
 
 const auth = getAuth(firebaseApp);
