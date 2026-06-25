@@ -10,9 +10,11 @@ import {
   deleteDoc, 
   writeBatch,
   getDocFromServer,
+  getDocsFromServer,
   query,
   where,
-  enableNetwork
+  enableNetwork,
+  disableNetwork
 } from 'firebase/firestore';
 import config from '../firebase-applet-config.json';
 import { DatabaseState, Store, Notification, UserProfile, GlobalSettings } from './types';
@@ -25,20 +27,26 @@ const databaseId = (config.firestoreDatabaseId && config.firestoreDatabaseId !==
 // Use a more robust initialization
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-}, databaseId as any);
+}, databaseId);
 export const auth = getAuth(app);
 
 // Global connection state
 let isNetworkEnabled = false;
 
-async function ensureNetwork() {
-  if (isNetworkEnabled) return;
+async function ensureNetwork(force = false) {
+  if (isNetworkEnabled && !force) return;
   try {
+    // If we are forcing, we might want to disable first to "reset" the connection
+    if (force) {
+      await disableNetwork(db).catch(() => {});
+    }
     await enableNetwork(db);
     isNetworkEnabled = true;
     console.log('Firestore network enabled successfully.');
-  } catch (err) {
-    console.warn('Could not enable Firestore network:', err);
+  } catch (err: any) {
+    console.warn('Could not enable Firestore network:', err.message);
+    // Even if it fails, we don't want to spam it, but if it was forced we reset the flag
+    if (force) isNetworkEnabled = false;
   }
 }
 
@@ -58,15 +66,20 @@ export enum OperationType {
 async function testConnection(retries = 3) {
   console.log(`Iniciando teste de conexão com o Firestore (tentativas restantes: ${retries})...`);
   try {
-    await ensureNetwork();
+    await ensureNetwork(retries < 3); // Force enable on retries
     // Attempt a direct server fetch to verify connectivity
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDocFromServer(doc(db, 'test', 'connection')).catch(err => {
+      // If document doesn't exist, it's still a successful connection if it didn't throw an offline error
+      if (err.code === 'not-found') return;
+      throw err;
+    });
     console.log("Teste de conexão Firestore: SUCESSO");
   } catch (error: any) {
     console.warn("Teste de conexão Firestore: FALHA", error.message);
-    if (retries > 0 && (error.message.includes('offline') || error.code === 'unavailable' || error.code === 'failed-precondition')) {
-      console.info("Tentando reconectar em 2 segundos...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    const isOffline = error.message.includes('offline') || error.code === 'unavailable' || error.code === 'failed-precondition';
+    if (retries > 0 && isOffline) {
+      console.info("Tentando reconectar em 3 segundos...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
       return testConnection(retries - 1);
     }
   }
@@ -153,33 +166,68 @@ export async function createUserProfile(profile: UserProfile): Promise<void> {
   }
 }
 
-// Global data access (Simplified: removing individual user filtering for shared dashboard)
-export async function fetchFullDatabaseFromFirestore(retries = 3): Promise<Omit<DatabaseState, 'pisos' | 'categorias' | 'tiposNotificacao'>> {
+export async function fetchFullDatabaseFromFirestore(retries = 4): Promise<Omit<DatabaseState, 'pisos' | 'categorias' | 'tiposNotificacao'>> {
   try {
-    await ensureNetwork();
+    await ensureNetwork(retries < 4); // Force enable on retries
     
-    const storesSnapshot = await getDocs(collection(db, 'stores'));
+    // Using getDocs normally, but the error "client is offline" often comes from a mismatch in state
+    let storesSnapshot;
+    try {
+      storesSnapshot = await getDocs(collection(db, 'stores'));
+    } catch (err: any) {
+      if (err.message?.includes('offline')) {
+        console.warn('Firestore offline, attempting to fetch from server directly...');
+        storesSnapshot = await getDocsFromServer(collection(db, 'stores'));
+      } else {
+        throw err;
+      }
+    }
+
     const stores: Store[] = [];
     storesSnapshot.forEach((docSnap) => {
       stores.push({ id: docSnap.id, ...docSnap.data() } as Store);
     });
 
-    const notificationsSnapshot = await getDocs(collection(db, 'notifications'));
+    let notificationsSnapshot;
+    try {
+      notificationsSnapshot = await getDocs(collection(db, 'notifications'));
+    } catch (err: any) {
+      if (err.message?.includes('offline')) {
+        notificationsSnapshot = await getDocsFromServer(collection(db, 'notifications'));
+      } else {
+        throw err;
+      }
+    }
+
     const notifications: Notification[] = [];
     notificationsSnapshot.forEach((docSnap) => {
       notifications.push({ id: docSnap.id, ...docSnap.data() } as Notification);
     });
 
-    const settingsDoc = await getDoc(doc(db, 'config', 'global'));
+    let settingsDoc;
+    try {
+      settingsDoc = await getDoc(doc(db, 'config', 'global'));
+    } catch (err: any) {
+      if (err.message?.includes('offline')) {
+        settingsDoc = await getDocFromServer(doc(db, 'config', 'global'));
+      } else {
+        throw err;
+      }
+    }
     const settings = settingsDoc.exists() ? settingsDoc.data() as GlobalSettings : undefined;
 
     return { stores, notifications, settings };
   } catch (error: any) {
-    const isOffline = error?.message?.includes('offline') || error?.code === 'unavailable' || error?.code === 'failed-precondition';
+    const isOffline = error?.message?.includes('offline') || 
+                      error?.code === 'unavailable' || 
+                      error?.code === 'failed-precondition' ||
+                      error?.message?.includes('network');
     
     if (isOffline && retries > 0) {
-      console.warn(`Fetch database failed (offline), retrying... (${retries} left)`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.warn(`Fetch database failed (${error.message}), retrying... (${retries} left)`);
+      // Exponential backoff
+      const delay = (5 - retries) * 1500;
+      await new Promise(resolve => setTimeout(resolve, delay));
       return fetchFullDatabaseFromFirestore(retries - 1);
     }
 

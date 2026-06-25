@@ -1,35 +1,38 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { initializeApp, getApps } from "firebase-admin/app";
+import { initializeApp, getApps, getApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
 import fs from 'fs';
 
 // Initialize Firebase Admin
-if (getApps().length === 0) {
-  let projectId = "notific-ae16crv01-cb89e";
-  try {
-    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (config.projectId) {
-        projectId = config.projectId;
-      }
+let projectId = "notific-ae16crv01-cb89e";
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (config.projectId) {
+      projectId = config.projectId;
     }
-  } catch (err) {
-    console.error("Error reading projectId from config:", err);
   }
-
-  console.log('Initializing Firebase Admin for project:', projectId);
-  // We use projectId to ensure it targets the provisioned project
-  initializeApp({
-    projectId: projectId
-  });
+} catch (err) {
+  console.error("Error reading projectId from config:", err);
 }
 
-const auth = getAuth();
+// Force the project ID in the environment to prevent gRPC from using the host project
+process.env.GOOGLE_CLOUD_PROJECT = projectId;
+process.env.GCLOUD_PROJECT = projectId;
+
+const firebaseApp = getApps().length === 0 
+  ? initializeApp({ projectId }) 
+  : getApp();
+
+const currentProjectId = firebaseApp.options.projectId || process.env.GOOGLE_CLOUD_PROJECT || 'unknown';
+console.log('Firebase Admin initialized. App count:', getApps().length, 'Project:', currentProjectId);
+
+const auth = getAuth(firebaseApp);
 
 // Get database ID from config
 let databaseId = "(default)";
@@ -45,7 +48,21 @@ try {
   console.error("Error reading databaseId from config:", err);
 }
 
-const db = getFirestore(databaseId);
+console.log('Using Firestore database:', databaseId);
+const db = (databaseId && databaseId !== "(default)") 
+  ? getFirestore(firebaseApp, databaseId) 
+  : getFirestore(firebaseApp);
+
+function getFirebaseErrorMessage(error: any) {
+  let errorMessage = error.message;
+  // Error code 7 is PERMISSION_DENIED for Firestore/Auth in gRPC
+  if ((error.code === 'auth/internal-error' || error.code === 'auth/forbidden' || error.code === 7) && error.message.includes('identitytoolkit.googleapis.com')) {
+    errorMessage = "A API do 'Identity Toolkit' (Firebase Auth) não está ativa no seu projeto Google Cloud. \n\n1. Clique no link para ativar: https://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=" + projectId + "\n2. Certifique-se também de que o provedor 'E-mail/Senha' está ativado no Console do Firebase (Autenticação > Provedores de login).";
+  } else if (error.message.includes('firestore.googleapis.com') || (error.code === 7 && !error.message.includes('identitytoolkit'))) {
+    errorMessage = "A API do Firestore não está ativa ou o banco de dados '" + databaseId + "' ainda não está pronto. \n\n1. Verifique se a API está ativa: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=" + projectId + "\n2. Se você acabou de criar o projeto, aguarde 1 minuto e tente novamente.";
+  }
+  return errorMessage;
+}
 
 async function startServer() {
   const app = express();
@@ -58,8 +75,8 @@ async function startServer() {
     const { email, password, name, role, adminEmail } = req.body;
 
     // Security check: Only isabelemfa@gmail.com can call this
-    if (adminEmail !== "isabelemfa@gmail.com") {
-      return res.status(403).json({ error: "Unauthorized. Only the master admin can manage users." });
+    if (adminEmail?.toLowerCase() !== "isabelemfa@gmail.com") {
+      return res.status(403).json({ error: "Unauthorized. Somente o administrador principal pode gerenciar usuários." });
     }
 
     if (!email || !password) {
@@ -104,31 +121,57 @@ async function startServer() {
       res.json({ success: true, email: email.toLowerCase(), uid: userRecord.uid });
     } catch (error: any) {
       console.error("Error creating user:", error);
-      
-      let errorMessage = error.message;
-      if (error.code === 'auth/internal-error' && error.message.includes('identitytoolkit.googleapis.com')) {
-        errorMessage = "A API do Firebase Authentication não está ativa. Por favor, clique no link abaixo para ativar:\n\nhttps://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=" + (process.env.FIREBASE_PROJECT_ID || "notific-ae16crv01-cb89e");
-      }
-      
-      res.status(500).json({ error: errorMessage });
+      res.status(500).json({ error: getFirebaseErrorMessage(error) });
     }
   });
 
   // API Route to list users
   app.get("/api/admin/users", async (req, res) => {
-    const adminEmail = req.query.adminEmail;
+    const adminEmail = req.query.adminEmail as string;
 
-    if (adminEmail !== "isabelemfa@gmail.com") {
+    if (adminEmail?.toLowerCase() !== "isabelemfa@gmail.com") {
       return res.status(403).json({ error: "Unauthorized." });
     }
 
     try {
+      console.log(`Fetching users from Firestore [Project: ${currentProjectId}, DB: ${databaseId}] collection: user_profiles`);
       const snapshot = await db.collection("user_profiles").get();
       const users = snapshot.docs.map(doc => doc.data());
       res.json({ users });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("Error listing users:", error);
+      res.status(500).json({ 
+        error: getFirebaseErrorMessage(error),
+        details: error.message,
+        code: error.code,
+        project: currentProjectId,
+        database: databaseId
+      });
     }
+  });
+
+  app.get("/api/debug/firestore", async (req, res) => {
+    const results: any = {};
+    try {
+      const defaultDb = getFirestore(firebaseApp);
+      await defaultDb.collection("debug").limit(1).get();
+      results.defaultDb = "OK";
+    } catch (err: any) {
+      results.defaultDb = `Error: ${err.message} (Code: ${err.code})`;
+    }
+
+    try {
+      await db.collection("debug").limit(1).get();
+      results.namedDb = "OK";
+    } catch (err: any) {
+      results.namedDb = `Error: ${err.message} (Code: ${err.code})`;
+    }
+
+    res.json({
+      projectId: currentProjectId,
+      databaseId,
+      results
+    });
   });
 
   // Vite middleware for development

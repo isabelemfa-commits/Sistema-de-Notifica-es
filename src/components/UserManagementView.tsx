@@ -27,9 +27,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/users?adminEmail=${encodeURIComponent(adminEmail)}`);
-      if (!response.ok) throw new Error('Não foi possível carregar os usuários');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Não foi possível carregar os usuários');
+      }
       const data = await response.json();
-      setUsers(data.users);
+      setUsers(data.users || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -145,11 +148,22 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ adminEma
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-4 rounded-xl flex items-start gap-3 animate-shake">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <div className="flex flex-col gap-1">
-                  <p className="font-bold">Atenção</p>
-                  <p className="leading-relaxed whitespace-pre-wrap">{error}</p>
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs p-5 rounded-2xl flex flex-col gap-3 animate-shake shadow-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  <p className="font-bold text-sm">Erro de Configuração</p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <p className="leading-relaxed whitespace-pre-wrap font-medium">{error}</p>
+                  {error.includes('http') && (
+                    <div className="bg-red-500/20 p-3 rounded-xl border border-red-500/30">
+                      <p className="text-[10px] text-red-300 uppercase font-bold mb-2">Ação Necessária:</p>
+                      <p className="text-[11px] leading-relaxed">
+                        Abra o console do Google Cloud usando o link acima e clique em <b>ATIVAR</b>. 
+                        Isso é necessário para que o sistema consiga criar novos usuários.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
